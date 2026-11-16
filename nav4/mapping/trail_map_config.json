@@ -1,0 +1,426 @@
+{
+  "_doc": "Segment-A trail map parameters. Every entry is {value, why}. load_config() strips the 'why'.",
+  "segment": {
+    "navmap_free_dilation_m": {
+      "value": 0.5,
+      "why": "A pose counts as 'on the paved/nav-map area' if a FREE (254) PGM cell lies within this radius: absorbs the 0.1 m PGM quantisation and the ~0.3-0.5 m offset between a hand-held scanner and the walker's feet. Exit/entry moved by <1.2 m of path for 0 / 0.5 / 1.0 m (see segment.json dilation_sensitivity)."
+    },
+    "dilation_sensitivity_m": {
+      "value": [
+        0.0,
+        0.5,
+        1.0
+      ],
+      "why": "Report how the exit/entry depend on the dilation choice."
+    },
+    "approach_m": {
+      "value": 10.0,
+      "why": "Brief: ~10 m of approach on the paved area at each end."
+    },
+    "work_margin_raw_m": {
+      "value": 60.0,
+      "why": "Raw path length processed beyond exit/entry before cutting, so the 10 m approach is cut from an already cleaned line."
+    },
+    "pause_min_step_m": {
+      "value": 0.2,
+      "why": "Pause removal: a pose is kept only after the scanner moved >=0.2 m in XY (stationary jitter is a few cm; equals the station spacing)."
+    },
+    "loop_close_radius_m": {
+      "value": 1.0,
+      "why": "Back-and-forth detection: returning within 1.0 m (about half a trail width) of an already kept point closes a loop."
+    },
+    "loop_close_dz_m": {
+      "value": 0.5,
+      "why": "Loop closure also needs |dz|<0.5 m so that vertically separated trail passes (switchbacks, bridges) are never merged; a person's scanner height varies <0.3 m between passes."
+    },
+    "loop_min_arc_m": {
+      "value": 2.0,
+      "why": "Only an excursion of >=2 m walked path (2x the closure radius) is a loop; normal forward walking never returns within 1 m after 2 m."
+    },
+    "loop_max_arc_m": {
+      "value": 150.0,
+      "why": "Upper bound on a removable excursion; the whole trail loop (~850 m) can never be pruned. Longest pruned excursion is reported."
+    },
+    "smoothing_sigma_m": {
+      "value": 0.4,
+      "why": "Gaussian smoothing along arc length removes walking sway (+-0.1 m at step frequency) but keeps bends of radius >~1.5 m."
+    },
+    "station_spacing_m": {
+      "value": 0.2,
+      "why": "Brief: resample at 0.2 m XY arc length (same as the existing map contract)."
+    }
+  },
+  "grid": {
+    "res_m": {
+      "value": 0.1,
+      "why": "Brief and existing map contract: 0.1 m cells."
+    },
+    "coverage_radius_m": {
+      "value": 12.0,
+      "why": "Map content is kept within 12 m of the centreline (brief: >=10 m; BEV reaches 6 m ahead / 4 m sideways and sensors 8 m, from a robot up to 0.75 m + 0.35 m off-route before 'wrong-way' termination). Outside: known=0, unsupported, empty atlas."
+    },
+    "crop_radius_m": {
+      "value": 14.0,
+      "why": "Point crop radius around centreline AND raw walked poses: coverage 12 m + 2 m so neighbourhood filters (<=1.5 m) are not edge-biased inside the covered area."
+    },
+    "bbox_margin_m": {
+      "value": 12.5,
+      "why": "Dense grid = route bounding box + 12.5 m (coverage radius + 0.5 m)."
+    }
+  },
+  "ground": {
+    "layer_thickness_m": {
+      "value": 0.05,
+      "why": "Lowest layer = lowest point with >= layer_min_points points within 5 cm above it in the cell (5 cm ~ 2-3 sigma of LiDAR range noise on hard ground)."
+    },
+    "layer_min_points": {
+      "value": 2,
+      "why": "Rejects isolated single low returns (multipath/noise) while keeping sparse ground under vegetation (median density ~50 points per 0.1 m cell). No normal filter: the lowest return of a trunk/wall/riser column is its base, i.e. ground; provider normals are unreliable in vegetation."
+    },
+    "vegetation_slab_m": {
+      "value": 0.3,
+      "why": "Slab above the lowest layer used for the return-concentration test (grass/fern height scale)."
+    },
+    "bare_concentration_min": {
+      "value": 0.5,
+      "why": "Bare soil/concrete: most returns in the 0.3 m slab lie in the lowest 5 cm. Below 0.5 the layer is diffuse (vegetation)."
+    },
+    "median_window": {
+      "value": 5,
+      "why": "Pit/spike test identical to the old proxy (5x5 = 0.5 m median)."
+    },
+    "median_tolerance_m": {
+      "value": 0.25,
+      "why": "Old proxy value; a 0.25 m deviation from the 0.5 m neighbourhood median is a pit/spike, not terrain (risers <=0.2 m pass)."
+    },
+    "envelope_radius_m": {
+      "value": 0.6,
+      "why": "Lower-envelope cone radius (about half the robot length): object tops are judged against ground seen within 0.6 m."
+    },
+    "envelope_slope_deg": {
+      "value": 45.0,
+      "why": "Cone slope of the lower envelope: natural ground up to 45 deg (steeper than any supported grade) is not mistaken for an object top."
+    },
+    "vegetation_top_min_m": {
+      "value": 0.25,
+      "why": "A lowest layer >=0.25 m above the 45-deg envelope AND diffuse (concentration<0.5) is a vegetation/object top: ground there is unobserved (stays unknown unless within the 0.2 m gap fill)."
+    },
+    "connect_max_dz_m": {
+      "value": 0.3,
+      "why": "Ground continuity: 8-neighbour steps up to 0.30 m (max riser 0.20 m + slope 45 deg over 0.1 m) connect cells into one surface grown from the walked path."
+    },
+    "min_component_area_m2": {
+      "value": 1.0,
+      "why": "Observed-ground islands not connected to the walked-path surface are kept only if >=1 m^2 (rejects isolated flat object tops such as rock/post tops)."
+    },
+    "interpolate_radius_m": {
+      "value": 0.2,
+      "why": "Old proxy value: gaps up to 0.2 m are interpolated (nearest); larger gaps stay unknown/unsupported."
+    },
+    "walked_cell_radius_m": {
+      "value": 0.15,
+      "why": "Cells within 0.15 m of a moving raw pose are 'under the walked path' (scanner XY ~ foot position within a stride)."
+    },
+    "device_height_radius_m": {
+      "value": 0.2,
+      "why": "Ground under a pose for the device-height estimate: median lowest layer within 0.2 m."
+    },
+    "device_height_min_speed_mps": {
+      "value": 0.3,
+      "why": "Pauses excluded: during long stops the operator lowered the scanner (h 0.3-1.2 m for 20-40 s at s=132, 351, 533, 649, 720 m)."
+    },
+    "prior_fill_under_path": {
+      "value": true,
+      "why": "Brief: ground under the walked path ~= scanner z - device height; used only for walked-path cells whose ground is otherwise unknown."
+    },
+    "prior_tolerance_m": {
+      "value": 0.5,
+      "why": "Walked-path seeds must lie within 0.5 m of scanner z - device height (~4 robust sigma of the measured device-height spread, 0.12 m)."
+    },
+    "second_layer_gap_m": {
+      "value": 0.3,
+      "why": "A second surface layer in the same cell must start >= 0.3 m above the lowest one (distinct surface, not the same ground)."
+    },
+    "sub_surface_min_drop_m": {
+      "value": 0.5,
+      "why": "The lowest layer is replaced by the walked-connected upper layer only if it lies >= 0.5 m below it (deeper than the 0.2 m step limit + ditch-edge effects); shallower differences are real terrain."
+    },
+    "deck_over_void": {
+      "value": true,
+      "why": "Fix C: under walked cells whose ground lies more than prior_tolerance_m below (scanner z - device height), a near-horizontal bare layer of returns within prior_tolerance_m of that walked surface and >= second_layer_gap_m above the ground is the walking surface (bridge deck / culvert cover); the lower returns are the void below it."
+    },
+    "deck_connect_max_dz_m": {
+      "value": 0.05,
+      "why": "Fix C: the deck is grown over 8-neighbours whose deck layer lies within 5 cm of the neighbouring deck height (= layer_thickness_m, 2-3 sigma LiDAR range noise on hard surfaces): a continuous surface, not a separate object. 'Near-horizontal' itself = majority of layer returns with |normal_z| >= cos(max_grade_deg 35) (a surface the robot could stand on); 'bare' = layer / 0.3 m slab returns >= bare_concentration_min (not vegetation)."
+    },
+    "deck_max_distance_m": {
+      "value": 2.0,
+      "why": "Fix C: deck growth limited to 2 m from the walked line: covers the +-0.75 m acceptance band plus the robot half-length 0.515 m and half-width 0.29 m (1.56 m) with one cell to spare; the footbridge at s 718.8 is 1.4 m wide between its rails, so its edges are reached."
+    }
+  },
+  "terrain": {
+    "max_step_m": {
+      "value": 0.2,
+      "why": "Stair-mode riser capability (brief default; TO BE CONFIRMED by the user). Measured as max |dz| to known neighbours within step_radius."
+    },
+    "step_radius_m": {
+      "value": 0.1,
+      "why": "Discontinuity = max |dz| to the 8 neighbours and axis central differences over +-0.1 m (0.2 m baseline): a riser smeared over two 0.1 m cells is still measured at full height, but only the cells on/straddling the edge are flagged (a 0.2 m dilation removed 0.2 m of usable tread beside every ditch). A 35 deg slope gives <= 0.14 m."
+    },
+    "max_grade_deg": {
+      "value": 35.0,
+      "why": "Max sustained grade (brief default; TO BE CONFIRMED)."
+    },
+    "grade_radius_m": {
+      "value": 0.3,
+      "why": "Grade = least-squares plane over a 0.6 m disc (spans two 0.3 m stair treads, so single risers are averaged; a 1.0 m disc tilted the plane of a 1.1 m-wide tread towards an adjacent ditch/bank and removed ~0.5 m of usable tread)."
+    },
+    "trail_terrain_exemption": {
+      "value": true,
+      "why": "User statement (2026-11-16): all terrain along the walked trail is traversable in stair mode. Inside the trail zone, step/grade limits are not applied; they still apply everywhere else."
+    },
+    "trail_zone_halfwidth_m": {
+      "value": 0.75,
+      "why": "Trail zone = within 0.75 m of the raw walked path (the acceptance band is +-0.75 m; robot half-width 0.29 m + walker sway)."
+    },
+    "trail_zone_connect_max_step_m": {
+      "value": 0.28,
+      "why": "Fix B: trail-zone cells must be reachable from the walked cells through 8-neighbour steps <= the maximum stair riser measured on the walked trail: 0.277 m (stair flight 2, s 9.1-14.5, report v5 'terrain.stairs'), rounded up to the cm. The user declared that riser traversable in stair mode; deeper ledges/ditches beside the trail stay unexempted. Away from the trail zone max_step_m (0.20) applies unchanged."
+    },
+    "trail_zone_max_cross_grade_deg": {
+      "value": 35.0,
+      "why": "Side slopes steeper than the grade limit across the trail direction are not trail terrain (not exempted). Fix B: evaluated at robot scale (cross_grade_half_width_m / cross_grade_half_length_m), not with the 0.3 m disc of grade_radius_m."
+    },
+    "cross_grade_half_width_m": {
+      "value": 0.29,
+      "why": "Fix B: cross-track grade = least-squares plane over a rectangle centred on the cell, aligned with the route heading, extending the robot half-width 0.29 m on each side across the route (the roll the robot body experiences between its left and right contacts)."
+    },
+    "cross_grade_half_length_m": {
+      "value": 0.515,
+      "why": "Fix B: along-route half extent of that rectangle = robot half-length 0.515 m, so the plane spans >= 2 treads (tread 0.30-0.50 m) and a single riser edge does not dominate the fit (v5: a 0.3 m-radius disc gave 36-54 deg at riser edges on the bends of s 5-21)."
+    }
+  },
+  "obstacles": {
+    "body_band_m": {
+      "value": [
+        0.22,
+        0.8
+      ],
+      "why": "Old proxy band: below 0.22 m = within stair-mode step capability (0.20 m + 2 cm ground noise); above 0.80 m = above the robot (Gemini camera at 0.64 m, body+sensors ~0.7 m, +0.1 m margin). Lower bound measured above the highest known ground in the 3x3 neighbourhood (riser/ledge faces are terrain, handled by the step test); upper bound above the cell's own ground."
+    },
+    "body_min_points": {
+      "value": 2,
+      "why": "Old proxy: >=2 returns in the body band of a 0.1 m column (single returns are noise)."
+    },
+    "vertical_normal_max_abs_nz": {
+      "value": 0.35,
+      "why": "|normal_z|<0.35 (normal within ~20 deg of horizontal) = vertical surface (trunk, wall, post, rock face)."
+    },
+    "continuation_top_m": {
+      "value": 1.2,
+      "why": "Continuation test = returns directly above the robot height (0.8-1.2 m) in the same 0.1 m column: trunks/posts/shrubs continue upward, grass does not; overhanging canopy higher than 1.2 m is ignored."
+    },
+    "continuation_min_points": {
+      "value": 2,
+      "why": "Same noise floor as body_min_points."
+    },
+    "subbin_m": {
+      "value": 0.0967,
+      "why": "Body band split in 6 sub-bins (0.22-0.80 m) for the vertical-continuity test."
+    },
+    "linear_structure_classes": {
+      "value": [
+        13,
+        14
+      ],
+      "why": "Classification codes that are empirically thin vertical/linear structures along the trail (posts, handrails; see classes.json). Used only as HARD evidence, never to make anything soft."
+    },
+    "pca_block_cells": {
+      "value": 3,
+      "why": "Shape analysis in 0.3 x 0.3 m voxels, two voxels over the body band (0.22-0.51, 0.51-0.80 m): roughly isotropic boxes (trunk/post diameter scale), using true point x,y."
+    },
+    "pca_min_points": {
+      "value": 10,
+      "why": "Minimum returns per voxel for a covariance estimate; sparser voxels give no soft evidence (conservative)."
+    },
+    "linear_min": {
+      "value": 0.7,
+      "why": "Linearity (l1-l2)/l1 >= 0.7 with a near-vertical main axis = post/trunk/pole."
+    },
+    "vertical_axis_min_abs_z": {
+      "value": 0.8,
+      "why": "Main axis within ~37 deg of vertical."
+    },
+    "planar_min": {
+      "value": 0.5,
+      "why": "Planarity (l2-l3)/l1 >= 0.5: a surface. With a near-horizontal normal = wall/rock face/trunk; with scatter < soft_min_scattering = any solid surface (rock top, bench, ledge)."
+    },
+    "vertical_plane_max_normal_z": {
+      "value": 0.3,
+      "why": "Plane normal within ~17 deg of horizontal."
+    },
+    "continuous_column_min_vertical_fraction": {
+      "value": 0.5,
+      "why": "A column occupied in all 6 sub-bins, continuing above 0.8 m and with >=50% vertical normals is a solid upright (trunk/post/wall)."
+    },
+    "soft_min_scattering": {
+      "value": 0.1,
+      "why": "Soft requires volumetric scatter l3/l1 >= 0.1 (not a surface or a line)."
+    },
+    "soft_requires_no_body_top_continuation": {
+      "value": true,
+      "why": "Conservative: anything that continues above the robot height (0.8-2.0 m) in the same column is hard (shrubs with woody stems, trunks)."
+    },
+    "sparse_class": {
+      "value": true,
+      "why": "Fix A: obstacle cells with no hard evidence, not adjacent (3x3) to a hard-evidence cell and with a peak sub-bin return count below the solid-consistent density at their range are 'sparse': visible (flag 2, like soft) but non-colliding. v5 made them hard by default (no voxel had pca_min_points)."
+    },
+    "solid_density_reference": {
+      "value": "continuous",
+      "why": "Fix A: reference population for solid density = obstacle cells passing the per-cell continuous-column test (all 6 sub-bins occupied, continuation above 0.8 m, >= 50 % vertical normals: trunks, posts, walls). The other hard evidence (vertical line/plane, surface) is decided per 0.3 m voxel and inherited by all 9 cells, including edge cells with 1-2 returns: their per-cell p10 is 2-3 at every range (= the body_min_points floor) and carries no density information; railing codes are thin rails/posts. Cross-check: the reference p10 within 1.5 m (13/12/10 returns per sub-bin) matches the bare-ground p10 within +-5 cm of the ground (9/12/12 per 0.1 m cell) - a solid face is sampled like ground."
+    },
+    "solid_density_percentile": {
+      "value": 10,
+      "why": "Fix A: a cell is solid-consistent if its peak sub-bin return count (0.1 x 0.1 x 0.097 m sub-voxel) reaches the 10th percentile of the reference cells at the same range: 90 % of verified solid columns pass. Sensitivity (v5 map): p5 / p10 / p25 leave 84 / 78 / 72 blocking stations (fix A alone)."
+    },
+    "solid_density_range_bins_m": {
+      "value": [
+        0,
+        0.5,
+        1,
+        1.5,
+        2,
+        3,
+        4,
+        6,
+        8,
+        12
+      ],
+      "why": "Fix A: range proxy = distance to the walked (scanner) line; bins 0.5 m wide within 2 m (where footprints are evaluated), wider beyond. Cells beyond 12 m use the last bin. The threshold is forced non-increasing with range (return density can only fall with range)."
+    },
+    "solid_density_min_reference_cells": {
+      "value": 50,
+      "why": "Fix A: a bin needs >= 50 reference cells (p10 rank >= 5) for a stable percentile; bins with fewer take the value of the nearest valid bin."
+    }
+  },
+  "walked_corridor": {
+    "halfwidth_m": {
+      "value": 0.3,
+      "why": "Brief default: a person (shoulder ~0.45 m) physically passed within +-0.30 m of the raw scanner path."
+    },
+    "apply_in_saved_map": {
+      "value": true,
+      "why": "map.npz layer 5/6 use the prior (variant c); variant b (no prior) is kept in aux.npz and reported."
+    },
+    "source": {
+      "value": "raw 10 Hz poses inside segment A (incl. pruned back-and-forth)",
+      "why": "The surveyor walked all of them."
+    }
+  },
+  "corridor": {
+    "width_clip_m": {
+      "value": [
+        1.0,
+        3.0
+      ],
+      "why": "Brief: corridor width = measured feasible width clipped to [1,3] m; layer 3 = distance to centreline - width/2."
+    },
+    "lateral_search_m": {
+      "value": 1.5,
+      "why": "Feasible-width measurement: robot centre offsets within +-1.5 m (same as qualify_routes) at 0.05 m."
+    },
+    "acceptance_band_m": {
+      "value": 0.75,
+      "why": "Brief: continuous path must stay within +-0.75 m of the centreline."
+    },
+    "fit_margin_m": {
+      "value": 0.1,
+      "why": "User: report where feasible width < 0.58 m + 0.10 m margin."
+    },
+    "dp_max_shift_per_station_m": {
+      "value": 0.1,
+      "why": "Path search: lateral change <= 0.10 m per 0.2 m station (<= 27 deg off the route heading); extracted path is re-validated with fine + swept footprints using its own heading."
+    }
+  },
+  "report": {
+    "stairs": {
+      "riser_min_m": {
+        "value": 0.08,
+        "why": "A riser is a rise/fall >= 8 cm within ~0.1-0.3 m along the centreline profile (well above the ~1-2 cm ground noise, below any real stair riser 0.10-0.20 m)."
+      },
+      "riser_max_run_m": {
+        "value": 0.35,
+        "why": "The rise must happen within 0.35 m along the route (a vertical-ish face, allowing an oblique crossing); slower rises are grade, not steps."
+      },
+      "tread_max_m": {
+        "value": 1.2,
+        "why": "Consecutive risers further apart than 1.2 m along the route belong to different flights."
+      },
+      "min_risers": {
+        "value": 3,
+        "why": "A flight needs >= 3 risers in the same direction."
+      }
+    },
+    "sections": {
+      "value": "auto",
+      "why": "Cross-sections: deterministic picks from the old-proxy diagnosis (longest failing run per cause, narrowest lane, stairs) - listed in report.json."
+    },
+    "fix_sections_s_m": {
+      "value": [
+        6,
+        8,
+        16,
+        47,
+        61,
+        96,
+        113,
+        149,
+        507,
+        621,
+        668,
+        677,
+        719
+      ],
+      "why": "Brief (fixes A-D): cross-sections at these scanner-centreline stations -> figures/fix_sections_sNNN.png, after (fixes) vs before (v5)."
+    }
+  },
+  "route": {
+    "_doc": "Fix D: saved route = smoothed swept-feasible path within +-acceptance_band_m of the scanner centreline (nav4/mapping/route.py).",
+    "min_turn_radius_m": {
+      "value": 1.0,
+      "why": "Omnidirectional wheel-legged base: the tracker (nav4/config/env.json) turns at <= max_yaw_rate 0.75 rad/s, so a 1.0 m radius is followed at 0.75 m/s (~ the 0.8 m/s speed limit) and at the 0.28 m/s stair speed a 0.37 m radius would do; 1.0 m therefore never limits the speed. The scanner centreline itself has 17 stations below 1.0 m (pause kinks, min 0.45 m at s 542.4)."
+    },
+    "station_spacing_m": {
+      "value": 0.2,
+      "why": "Map contract: stations every 0.2 m of route arc length (uniform spacing L/round(L/0.2) so both end points are kept)."
+    },
+    "pull_scale_m": {
+      "value": 1.0,
+      "why": "Smoothing = curvature energy + weak pull to the middle of the feasible tube; the pull acts on lateral scales longer than ~1 m (robot length), curvature dominates below. mu = 1/pull_scale^4."
+    },
+    "repair_halfwindow_m": {
+      "value": 0.6,
+      "why": "Where the path's own-heading footprint or swept check fails (or the radius is below the minimum), the tube is narrowed by 0.05 m (or the curvature weight raised x10) within +-0.6 m (~ robot half-length + one station) and the smoothing repeated."
+    },
+    "max_iterations": {
+      "value": 8,
+      "why": "Repair rounds; the history is reported in metadata route_adaptation."
+    },
+    "blocked_freedom_m": {
+      "value": 0.1,
+      "why": "At stations with no feasible offset (reported as blocked) the route is not pinned to the least-violating DP offset (which zig-zags by 0.05 m steps) but may move +-0.1 m (2 offset steps) around it so the curvature stays bounded; the place stays reported as blocked."
+    },
+    "reweight_rounds": {
+      "value": 4,
+      "why": "The quadratic energy sum |D2 P|^2/h^3 equals the curvature energy only at the nominal station spacing h; lateral offsets compress the spacing inside bends (a curve moved toward its centre of curvature would look 'smoother'). 4 reweighting rounds with w_i = (h/h_i)^3 make the energy track sum kappa^2 h_i."
+    },
+    "refine_passes": {
+      "value": 2,
+      "why": "Pass 1 builds the feasible tube with the robot aligned to the scanner centreline; the route's own heading differs by up to ~15 deg, which matters where the tube is one or two 0.05 m offsets wide. Pass 2 recomputes the tube around the pass-1 route with its own heading and re-smooths."
+    },
+    "refine_halfwidth_m": {
+      "value": 0.25,
+      "why": "Pass 2 is a refinement: offsets within +-0.25 m of the pass-1 route (and within +-0.75 m of the centreline), so it cannot jump to a different lane."
+    }
+  }
+}
