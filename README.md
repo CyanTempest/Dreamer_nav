@@ -1,3 +1,5 @@
+> **2026-11-16 起**：本仓库的主线是 A 赛段导航。规范见 [CLAUDE.md](CLAUDE.md)，当前进度和下一步见 [HANDOFF.md](HANDOFF.md)，新代码在 `nav4/`。下面的正文是第 3–4 轮的旧说明，只作历史参考，其中"代码以 Mac 工作区为准"已作废。
+
 # nav3：局部导航实验
 
 代码主目录是本 Mac 工作区；运行目录是远端 `~/wang-sm/ATEC_NAV_WSM/research/exp_nav3/`。GPU 作业均使用 `nav3_` 前缀 tmux。当前实测状态见自动生成的 `REPORT.md` 和 `metrics/`；未通过闸门不能据此宣称训练完成。
