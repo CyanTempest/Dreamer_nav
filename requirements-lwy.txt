@@ -1,0 +1,5 @@
+# CPU importer/audit venv only. Do not install into the shared training env.
+numpy==2.4.6
+scipy==1.17.1
+shapely==2.2.0
+matplotlib==3.11.2

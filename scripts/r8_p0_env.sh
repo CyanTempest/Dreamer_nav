@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+export PYTHONDONTWRITEBYTECODE=1
+export XDG_CACHE_HOME="$PWD/fullgeo/r8_cache"
+export MPLCONFIGDIR="$PWD/fullgeo/r8_cache/matplotlib"
+export CUDA_CACHE_PATH="$PWD/fullgeo/r8_cache/cuda"
+export WP_CACHE_DIR="$PWD/fullgeo/r8_cache/warp"
+export UV_CACHE_DIR="$PWD/fullgeo/r8_cache/uv"
+export JAX_COMPILATION_CACHE_DIR="$PWD/fullgeo/r8_cache/jax"
+export XLA_PYTHON_CLIENT_PREALLOCATE=false
+export XLA_PYTHON_CLIENT_MEM_FRACTION=0.15
+export JAX_PLATFORMS=cpu
+export OMP_NUM_THREADS=4
+export OPENBLAS_NUM_THREADS=1
+export TMPDIR=/tmp
+export PYTHONPATH="$PWD"

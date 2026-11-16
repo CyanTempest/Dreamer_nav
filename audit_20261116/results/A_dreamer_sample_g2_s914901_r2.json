@@ -1,0 +1,306 @@
+{
+  "scope": "Audit 2026-11-16 A/B on official scan holdout patches; mirrors diagnose_policy.py without safety filter",
+  "args": {
+    "maps": "r9_official_runner/maps_scan_holdout",
+    "checkpoint": "checkpoints/dreamer_lwy_r8_pilot_20261113/latest.pkl",
+    "output": "/home/hpf/wang-sm/ATEC_NAV_WSM/research/exp_nav3/audit_20261116/results/A_dreamer_sample_g2_s914901_r2.json",
+    "body_bands": true,
+    "steps": 1502,
+    "repeats": 2,
+    "method": "dreamer",
+    "speed_cap": 0.8,
+    "seed": 914901,
+    "yaw_gain": 2.0,
+    "action": "sample",
+    "sanity": false,
+    "sanity_steps": 20
+  },
+  "method": "dreamer",
+  "action": "sample",
+  "yaw_gain": 2.0,
+  "env_class": "GainScanEnv(ScanEnv) with _step=LwyEnvV2._step",
+  "env_cfg_yaw_tracking_gain": 2.0,
+  "action_rule": "stock DreamerPolicy: sample(Agg(Normal(tanh(mean),stddev)))",
+  "checkpoint": "checkpoints/dreamer_lwy_r8_pilot_20261113/latest.pkl",
+  "checkpoint_sha256": "6d350effed55a6dc594ad9a7fb445fa1e814e5b9f92202de7782fa951ca068ee",
+  "map_manifest_sha256": "b53af64e132ccc7bba4add19ec94c88f6a5452c17a9d542947bf0b4fd7392ba6",
+  "seed": 914901,
+  "body_bands": true,
+  "speed_cap": 0.8,
+  "episodes": 18,
+  "valid_starts": 18,
+  "loop_steps": 294,
+  "seconds": 14.819828271865845,
+  "jax_version": "0.4.33",
+  "runtime_env": {
+    "XLA_FLAGS": "--xla_gpu_autotune_level=1 --xla_gpu_deterministic_ops=true",
+    "TF_CUDNN_DETERMINISTIC": "1",
+    "XLA_PYTHON_CLIENT_ALLOCATOR": "platform",
+    "XLA_PYTHON_CLIENT_MEM_FRACTION": "0.95"
+  },
+  "jax_peak_bytes_in_use": null,
+  "leakage": {
+    "privileged_actor_carry_max_error": 0.0,
+    "encoder_keys": [
+      "bev",
+      "state"
+    ],
+    "decoder_keys": [
+      "bev",
+      "state",
+      "priv_trav"
+    ]
+  },
+  "mode_policy_stddev_mean_active": null,
+  "initial_unknown_fraction": [
+    0.2475585639476776,
+    0.2155761420726776,
+    0.1779785007238388,
+    0.1789550483226776,
+    0.1611327975988388,
+    0.3330077528953552,
+    0.1193847581744194,
+    0.1306152194738388,
+    0.1135253831744194,
+    0.2473144233226776,
+    0.2099609076976776,
+    0.1938476264476776,
+    0.1789550483226776,
+    0.1682128608226776,
+    0.3376464247703552,
+    0.1149902269244194,
+    0.1157226487994194,
+    0.1164550706744194
+  ],
+  "summary": {
+    "valid_starts": 18,
+    "successes": 12,
+    "success_rate": 0.6666666666666666,
+    "failure_code_counts": {
+      "0": 12,
+      "1": 4,
+      "2": 2
+    },
+    "mean_s_at_termination": 23.55420532491472,
+    "per_map": {
+      "segment_0290": {
+        "valid": 2,
+        "successes": 2
+      },
+      "segment_0330": {
+        "valid": 2,
+        "successes": 0
+      },
+      "segment_0450": {
+        "valid": 2,
+        "successes": 2
+      },
+      "segment_0490": {
+        "valid": 2,
+        "successes": 2
+      },
+      "segment_1010": {
+        "valid": 2,
+        "successes": 0
+      },
+      "segment_1130": {
+        "valid": 2,
+        "successes": 0
+      },
+      "segment_1170": {
+        "valid": 2,
+        "successes": 2
+      },
+      "segment_1250": {
+        "valid": 2,
+        "successes": 2
+      },
+      "segment_1290": {
+        "valid": 2,
+        "successes": 2
+      }
+    }
+  },
+  "rows": {
+    "5": {
+      "ep_return": -14.680761337280273,
+      "failure": 2.0,
+      "gates": 0.0,
+      "s": 2.1872260570526123,
+      "steps": 4.0,
+      "valid_start": true,
+      "map": "segment_1130",
+      "active_steps": 4
+    },
+    "14": {
+      "ep_return": -14.399481773376465,
+      "failure": 2.0,
+      "gates": 0.0,
+      "s": 2.3351340293884277,
+      "steps": 6.0,
+      "valid_start": true,
+      "map": "segment_1130",
+      "active_steps": 6
+    },
+    "4": {
+      "ep_return": 28.29178237915039,
+      "failure": 1.0,
+      "gates": 2.0,
+      "s": 13.928703308105469,
+      "steps": 75.0,
+      "valid_start": true,
+      "map": "segment_1010",
+      "active_steps": 75
+    },
+    "13": {
+      "ep_return": 28.3291072845459,
+      "failure": 1.0,
+      "gates": 2.0,
+      "s": 14.059724807739258,
+      "steps": 101.0,
+      "valid_start": true,
+      "map": "segment_1010",
+      "active_steps": 101
+    },
+    "3": {
+      "ep_return": 108.42788696289062,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 17.04339027404785,
+      "steps": 120.0,
+      "valid_start": true,
+      "map": "segment_0490",
+      "active_steps": 120
+    },
+    "10": {
+      "ep_return": 71.2256851196289,
+      "failure": 1.0,
+      "gates": 7.0,
+      "s": 15.837291717529297,
+      "steps": 123.0,
+      "valid_start": true,
+      "map": "segment_0330",
+      "active_steps": 123
+    },
+    "0": {
+      "ep_return": 115.57237243652344,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 20.297161102294922,
+      "steps": 124.0,
+      "valid_start": true,
+      "map": "segment_0290",
+      "active_steps": 124
+    },
+    "1": {
+      "ep_return": 71.59840393066406,
+      "failure": 1.0,
+      "gates": 7.0,
+      "s": 15.862717628479004,
+      "steps": 129.0,
+      "valid_start": true,
+      "map": "segment_0330",
+      "active_steps": 129
+    },
+    "12": {
+      "ep_return": 107.9151840209961,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 17.004138946533203,
+      "steps": 135.0,
+      "valid_start": true,
+      "map": "segment_0490",
+      "active_steps": 135
+    },
+    "9": {
+      "ep_return": 114.85061645507812,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 20.212854385375977,
+      "steps": 150.0,
+      "valid_start": true,
+      "map": "segment_0290",
+      "active_steps": 150
+    },
+    "17": {
+      "ep_return": 152.54139709472656,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 38.896427154541016,
+      "steps": 233.0,
+      "valid_start": true,
+      "map": "segment_1290",
+      "active_steps": 233
+    },
+    "6": {
+      "ep_return": 151.07850646972656,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 38.63871383666992,
+      "steps": 249.0,
+      "valid_start": true,
+      "map": "segment_1170",
+      "active_steps": 249
+    },
+    "2": {
+      "ep_return": 126.44873046875,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 26.613317489624023,
+      "steps": 261.0,
+      "valid_start": true,
+      "map": "segment_0450",
+      "active_steps": 261
+    },
+    "15": {
+      "ep_return": 150.91123962402344,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 38.61167907714844,
+      "steps": 266.0,
+      "valid_start": true,
+      "map": "segment_1170",
+      "active_steps": 266
+    },
+    "11": {
+      "ep_return": 126.3086166381836,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 26.61077880859375,
+      "steps": 267.0,
+      "valid_start": true,
+      "map": "segment_0450",
+      "active_steps": 267
+    },
+    "7": {
+      "ep_return": 148.47039794921875,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 38.441219329833984,
+      "steps": 268.0,
+      "valid_start": true,
+      "map": "segment_1250",
+      "active_steps": 268
+    },
+    "16": {
+      "ep_return": 148.4537811279297,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 38.526588439941406,
+      "steps": 269.0,
+      "valid_start": true,
+      "map": "segment_1250",
+      "active_steps": 269
+    },
+    "8": {
+      "ep_return": 152.11798095703125,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 38.868629455566406,
+      "steps": 294.0,
+      "valid_start": true,
+      "map": "segment_1290",
+      "active_steps": 294
+    }
+  }
+}

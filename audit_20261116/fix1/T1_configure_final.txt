@@ -1,0 +1,2 @@
+{'XLA_FLAGS': '--xla_gpu_autotune_level=1 --xla_gpu_deterministic_ops=true', 'TF_CUDNN_DETERMINISTIC': '1', 'XLA_PYTHON_CLIENT_ALLOCATOR': 'platform', 'XLA_PYTHON_CLIENT_MEM_FRACTION': '0.95'}
+rc=0

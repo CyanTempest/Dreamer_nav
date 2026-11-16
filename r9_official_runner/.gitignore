@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+maps_*/
+metadata/
+*.part
+download_capabilities*
+.venv*/
+local_data/

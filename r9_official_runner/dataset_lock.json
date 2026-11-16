@@ -1,0 +1,11 @@
+{
+  "repo_id": "atec999/atec-opendataset",
+  "revision": "e5a3b987d1cfc4cb2928d0d728e843abc1b47cd8",
+  "files": {
+    "01_LiDAR_point_cloud.zip": 22274322366,
+    "02_3DGS_map.zip": 1234388710,
+    "03_Trajectory.zip": 20259397
+  },
+  "stage": "authorized_remote_download",
+  "frame_policy": "Do not assume LiDAR, 3DGS, and trajectories share a coordinate frame."
+}

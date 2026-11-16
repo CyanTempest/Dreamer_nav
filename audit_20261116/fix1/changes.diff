@@ -1,0 +1,127 @@
+--- a/nav3/dreamer_adapter.py (code_snapshot_before_audit.tar.gz)
++++ b/nav3/dreamer_adapter.py
+@@ -1,7 +1,8 @@
+ """Official Dreamer Agent, with a device-batched policy adapter and decoder readout.
+ 
+ The update, optimizer, replay and distributions are upstream implementations.
+-Only agent.py's priv_ encoder exclusion is patched in the worktree.
++Patched vs upstream e01491f: agent.py (priv_ keys excluded from the encoder), and replay storage in
++embodied/core chunk.py, replay.py plus new compress.py (LZ4 in-RAM or mmap chunks, replay-v1 save/restore).
+ """
+ from pathlib import Path
+ import os
+@@ -30,7 +31,7 @@
+ 
+ 
+ class DreamerPolicy:
+-    def __init__(self,seed=0,logdir='checkpoints/dreamer',head=True,amnesic=False,jax_overrides=None):
++    def __init__(self,seed=0,logdir='checkpoints/dreamer',head=True,amnesic=False,jax_overrides=None,deterministic=False):
+         cfg=make_config(seed,logdir,head)
+         self.cfg=cfg;self.head=head;self.amnesic=amnesic
+         obs_space=dict(bev=elements.Space(np.uint8,(64,64,6)),state=elements.Space(np.float32,(13,)),
+@@ -51,7 +52,21 @@
+         self.key=jax.random.PRNGKey(seed+1234)
+         self.carry=None
+         self._initial=jax.jit(nj.pure(self.agent.model.init_policy),static_argnums=(1,))
+-        self._policy=jax.jit(nj.pure(self.agent.model.policy),static_argnames=('mode',))
++        def mode_policy(carry,obs,mode='train'):
++            # Agent.policy with act=pol(...).pred() (tanh(mean) of bounded_normal) instead of sample().
++            # That sample() is its last nj.seed() draw, so the RSSM latent draws are unchanged.
++            m=self.agent.model;enc_carry,dyn_carry,dec_carry,prevact=carry
++            kw=dict(training=False,single=True);reset=obs['is_first']
++            enc_carry,enc_entry,tokens=m.enc(enc_carry,obs,reset,**kw)
++            dyn_carry,dyn_entry,feat=m.dyn.observe(dyn_carry,tokens,prevact,reset,**kw)
++            dec_entry={}
++            if dec_carry:dec_carry,dec_entry,_=m.dec(dec_carry,feat,reset,**kw)
++            act=jax.tree.map(lambda d:d.pred(),m.pol(m.feat2tensor(feat),bdims=1))
++            outs={'finite':elements.tree.flatdict(jax.tree.map(lambda x:jnp.isfinite(x).all(range(1,x.ndim)),
++                dict(obs=obs,carry=carry,tokens=tokens,feat=feat,act=act)))}
++            if m.config.replay_context:outs.update(elements.tree.flatdict(dict(enc=enc_entry,dyn=dyn_entry,dec=dec_entry)))
++            return (enc_carry,dyn_carry,dec_carry,act),act,outs
++        self._policy=jax.jit(nj.pure(mode_policy if deterministic else self.agent.model.policy),static_argnames=('mode',))
+         def readout(carry,first):
+             _,_,outs=self.agent.model.dec(carry[2],carry[1],first,training=False,single=True)
+             return outs['priv_trav'].pred()
+@@ -68,6 +83,7 @@
+         if self.carry is None or self.amnesic:
+             self.carry=self.initial(n)
+         self.key,key=jax.random.split(self.key)
++        # Upstream Agent.policy ignores mode and always samples; deterministic=True uses pred() instead.
+         _,(carry,act,outs)=self._policy(self.agent.params,self.carry,obs,mode='train',seed=key)
+         action=act['action'] if action_override is None else action_override
+         action=jnp.where(obs['is_last'][:,None],0.,action)
+--- a/r9_official_runner/diagnose_policy.py (code_snapshot_before_audit.tar.gz)
++++ b/r9_official_runner/diagnose_policy.py
+@@ -16,7 +16,9 @@
+     p.add_argument('--speed-cap',type=float,default=.8)
+     p.add_argument('--seed',type=int,default=914233)
+     p.add_argument('--filter-hold-steps',type=int,default=0)
++    p.add_argument('--action',choices=['sample','mode'],default='sample')
+     a=p.parse_args()
++    if a.action=='mode' and a.method!='dreamer':p.error('--action mode is defined for Dreamer only')
+     from nav3.lwy_training_runtime import configure
+     configure('dreamer')
+     import jax
+@@ -40,7 +42,7 @@
+     if a.method=='dreamer':
+         if not a.checkpoint:p.error('Dreamer requires --checkpoint')
+         from nav3.dreamer_adapter import DreamerPolicy
+-        policy=DreamerPolicy(0,str(out.parent/'policy_runtime'),jax_overrides=dict(autotune=1,deterministic=True))
++        policy=DreamerPolicy(0,str(out.parent/'policy_runtime'),jax_overrides=dict(autotune=1,deterministic=True),deterministic=(a.action=='mode'))
+         with Path(a.checkpoint).open('rb') as stream: policy.agent.load(pickle.load(stream)['agent'])
+         leakage=policy.leakage_check(obs)
+     elif a.method=='planner':
+@@ -70,7 +72,6 @@
+     filter_hold=jnp.zeros(env.n,jnp.int32)
+     for step in range(a.steps):
+         action=policy(obs)
+-        action=action.at[:,2].set(jnp.minimum(action[:,2],a.speed_cap/.4-1))
+         active=np.array([i not in rows for i in range(env.n)])
+         if a.safety_filter:
+             fallback,triggered=filtered(obs,action)
+@@ -100,7 +101,7 @@
+         row['filter_interventions']=int(interventions[i]);row['active_steps']=int(active_steps[i])
+     qualified=[r['name'] for r in env.bank.records if r['conservative_proxy_qualified']]
+     result=dict(scope='Official scan local diagnostic only; provisional surface proxy, scanner route excerpts, not race success rate',
+-                method=a.method,checkpoint=a.checkpoint,checkpoint_sha256=hashlib.sha256(Path(a.checkpoint).read_bytes()).hexdigest() if a.method=='dreamer' else None,
++                method=a.method,action=a.action if a.method=='dreamer' else None,checkpoint=a.checkpoint,checkpoint_sha256=hashlib.sha256(Path(a.checkpoint).read_bytes()).hexdigest() if a.method=='dreamer' else None,
+                 map_manifest_sha256=hashlib.sha256((Path(a.maps)/'manifest.json').read_bytes()).hexdigest(),
+                 seed=a.seed,body_bands=a.body_bands,safety_filter=a.safety_filter,speed_cap=a.speed_cap,
+                 filter_hold_steps=a.filter_hold_steps,
+--- a/r9_official_runner/README.md (code_snapshot_before_audit.tar.gz)
++++ b/r9_official_runner/README.md
+@@ -16,7 +16,7 @@
+ 
+ 现有规划器在本次测试中最可靠。接管机制改善了系统结果，但多数动作由规划器执行，不能说 Dreamer 本身已经学会官方场景。当前保留原模型，后续 RL 训练需要以规划器作为对照，并解决剩余地图/路线资格检查问题。
+ 
+-![测试结果](metadata/r9_results.png)
++![测试结果](metadata/r9_results.png)（仅存在于原 Mac 工作区，本服务器上没有此文件）
+ 
+ [官方扫描 BEV](metadata/holdout_hybrid.png) · [逐回合结果](metadata/holdout_hybrid.json) · [采集轨迹与点云叠加](metadata/location_audit.png)
+ 
+@@ -32,7 +32,7 @@
+ - 官方 README 没有单独的比赛路线标注；当前仅使用包内资料定义诊断任务。
+ - 3DGS 文件是 LCC2/LCC 工程。本次使用三维点云生成几何与传感器近似，不是实时 RGB/3DGS 训练。
+ 
+-Mac 流式处理规划点云时，逐字节校验完整源文件，仅保留测试窗口范围内的原始记录，未做语义或高度过滤。区域副本和上游校验记录在 `local_data/planning_diagnostic_crop.json`。大包完整下载另在服务器后台续传，不影响已经校验的规划点云及本次结果。
++Mac 流式处理规划点云时，逐字节校验完整源文件，仅保留测试窗口范围内的原始记录，未做语义或高度过滤。区域副本和上游校验记录在 `local_data/planning_diagnostic_crop.json`（仅存在于原 Mac 工作区，本服务器上没有此文件）。大包完整下载另在服务器后台续传，不影响已经校验的规划点云及本次结果。
+ 
+ ## 训练/导航接口
+ 
+@@ -80,7 +80,14 @@
+ - `qualify_routes.py`：包络与转弯扫掠资格检查。
+ - `prepare_holdout.py`：20 m空间分离规则，选择时不使用策略成绩。
+ - `diagnose_policy.py`：冻结策略、规则对照、风险接管、逐回合指标与BEV。
+-- `metadata/r9_summary.json`：最终统计；`metadata/holdout_*.json`：原始结果。
++- `metadata/r9_summary.json`（仅存在于原 Mac 工作区，本服务器上没有此文件）：最终统计；`metadata/holdout_*.json`：原始结果。
+ - `maps_scan_holdout/manifest.json`：评估窗口及地图文件校验值。
+ 
+-验证：Mac和4090均通过7项CPU测试，涵盖路径安全、校验篡改、坐标变换、时间戳、树冠/缺测语义、旋转过程碰撞、流式记录边界。GPU实跑验证了输入形状、dtype、有限动作、图外无支撑、特权隔离及全部评估回合正常结束。源码同步与校验记录保存在 `metadata/source_hashes_local.json`。
++验证：Mac和4090均通过7项CPU测试，涵盖路径安全、校验篡改、坐标变换、时间戳、树冠/缺测语义、旋转过程碰撞、流式记录边界。GPU实跑验证了输入形状、dtype、有限动作、图外无支撑、特权隔离及全部评估回合正常结束。源码同步与校验记录保存在 `metadata/source_hashes_local.json`（仅存在于原 Mac 工作区，本服务器上没有此文件）。
++
++## 审计补记（2026-11-16）
++
++- **跟踪器偏航增益**：`ScanEnv` 传入 `configs/lwy_v2_tracker.json` 的 `yaw_tracking_gain=4.0`，但该值被忽略：`ScanEnv._step` 经 `LwyEnv._step` 调用 `FastEnv._step`，后者的增益硬编码为 2。因此本文所有数字都是在增益 2 下得到的。在 9 个评估窗口上对比增益 2 与 4（每组 144 回合：随机种子 914901 与 20261116 各 72 回合），未见可测差异：规划器 141/144 对 143/144；Dreamer（采样动作）89/144 对 92/144。
++- **Dreamer 动作**：本文 Dreamer 结果均为采样动作（上游 `Agent.policy` 忽略 `mode`，始终采样）。确定性动作 `--action mode`（策略头 tanh(均值)）在增益 2 下为 100/144，采样为 89/144。该差异仅有提示意义，不能作为结论：只有 9 张地图，且回合之间相关。`diagnose_policy.py` 现支持 `--action {sample,mode}`，默认 `sample`，默认结果不变。
++- **单元测试**：`cd r9_official_runner && PYTHONPATH=. ../.venv_lwy/bin/python -m unittest discover -s tests`。
++- **原始输出**：A/B 原始结果在 `audit_20261116/results/`（由 `audit_20261116/eval_ab.py` 生成，汇总见 `audit_20261116/logs/summary.md`）。

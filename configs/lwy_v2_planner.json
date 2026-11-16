@@ -1,0 +1,7 @@
+{
+  "candidates": 15,
+  "offset_weight": 1.0,
+  "lookahead": 1.2,
+  "prediction_speed": 0.5,
+  "horizon": 30
+}

@@ -1,0 +1,4 @@
+{'XLA_FLAGS': '--xla_gpu_autotune_level=1 --xla_gpu_deterministic_ops=true', 'TF_CUDNN_DETERMINISTIC': '1', 'XLA_PYTHON_CLIENT_ALLOCATOR': 'platform', 'XLA_PYTHON_CLIENT_MEM_FRACTION': '0.95'}
+level 1
+protocol_hash 2b26be9eea608885fe9ecc2c42a53f1cbe9168ae51adfc571f6c0fe1f1fe8338
+fingerprint a3350106d8849a7fff38c58ca5d2ebaa759b52e4a02443022b9f75109bfc896d

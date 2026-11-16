@@ -1,0 +1,101 @@
+[
+  {
+    "label": "planner",
+    "new": "audit_20261116/fix1/holdout_planner_default.json",
+    "ref": "r9_official_runner/metadata/holdout_planner.json",
+    "episodes_new": 18,
+    "episodes_ref": 18,
+    "same_episode_ids": true,
+    "core_key_mismatches": [],
+    "all_common_key_mismatches": [],
+    "keys_only_in_new": [],
+    "keys_only_in_ref": [],
+    "successes_new": "18/18",
+    "successes_ref": "18/18",
+    "filter_intervention_fraction": {
+      "new": 0.0,
+      "ref": 0.0
+    },
+    "valid_starts": {
+      "new": 18,
+      "ref": 18
+    },
+    "episodes": {
+      "new": 18,
+      "ref": 18
+    },
+    "action": {
+      "new": null,
+      "ref": "<missing>"
+    },
+    "npz.npz": true,
+    "npz_rollout.npz": true,
+    "PASS": true
+  },
+  {
+    "label": "dreamer",
+    "new": "audit_20261116/fix1/holdout_dreamer_default.json",
+    "ref": "r9_official_runner/metadata/holdout_dreamer.json",
+    "episodes_new": 18,
+    "episodes_ref": 18,
+    "same_episode_ids": true,
+    "core_key_mismatches": [],
+    "all_common_key_mismatches": [],
+    "keys_only_in_new": [],
+    "keys_only_in_ref": [],
+    "successes_new": "12/18",
+    "successes_ref": "12/18",
+    "filter_intervention_fraction": {
+      "new": 0.0,
+      "ref": 0.0
+    },
+    "valid_starts": {
+      "new": 18,
+      "ref": 18
+    },
+    "episodes": {
+      "new": 18,
+      "ref": 18
+    },
+    "action": {
+      "new": "sample",
+      "ref": "<missing>"
+    },
+    "npz.npz": true,
+    "npz_rollout.npz": true,
+    "PASS": true
+  },
+  {
+    "label": "hybrid",
+    "new": "audit_20261116/fix1/holdout_hybrid_default.json",
+    "ref": "r9_official_runner/metadata/holdout_hybrid.json",
+    "episodes_new": 18,
+    "episodes_ref": 18,
+    "same_episode_ids": true,
+    "core_key_mismatches": [],
+    "all_common_key_mismatches": [],
+    "keys_only_in_new": [],
+    "keys_only_in_ref": [],
+    "successes_new": "15/18",
+    "successes_ref": "15/18",
+    "filter_intervention_fraction": {
+      "new": 0.6584795321637427,
+      "ref": 0.6584795321637427
+    },
+    "valid_starts": {
+      "new": 18,
+      "ref": 18
+    },
+    "episodes": {
+      "new": 18,
+      "ref": 18
+    },
+    "action": {
+      "new": "sample",
+      "ref": "<missing>"
+    },
+    "npz.npz": true,
+    "npz_rollout.npz": true,
+    "PASS": true
+  }
+]

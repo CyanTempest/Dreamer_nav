@@ -1,0 +1,295 @@
+{
+  "scope": "Audit 2026-11-16 A/B on official scan holdout patches; mirrors diagnose_policy.py without safety filter",
+  "args": {
+    "maps": "r9_official_runner/maps_scan_holdout",
+    "checkpoint": null,
+    "output": "/home/hpf/wang-sm/ATEC_NAV_WSM/research/exp_nav3/audit_20261116/results/A_planner_g2_s914901_r2.json",
+    "body_bands": true,
+    "steps": 1502,
+    "repeats": 2,
+    "method": "planner",
+    "speed_cap": 0.8,
+    "seed": 914901,
+    "yaw_gain": 2.0,
+    "action": "sample",
+    "sanity": false,
+    "sanity_steps": 20
+  },
+  "method": "planner",
+  "action": null,
+  "yaw_gain": 2.0,
+  "env_class": "GainScanEnv(ScanEnv) with _step=LwyEnvV2._step",
+  "env_cfg_yaw_tracking_gain": 2.0,
+  "action_rule": "planning_result(configs/lwy_v2_planner.json)",
+  "checkpoint": null,
+  "checkpoint_sha256": null,
+  "map_manifest_sha256": "b53af64e132ccc7bba4add19ec94c88f6a5452c17a9d542947bf0b4fd7392ba6",
+  "seed": 914901,
+  "body_bands": true,
+  "speed_cap": 0.8,
+  "episodes": 18,
+  "valid_starts": 18,
+  "loop_steps": 659,
+  "seconds": 4.151103973388672,
+  "jax_version": "0.4.33",
+  "runtime_env": {
+    "XLA_FLAGS": "--xla_gpu_autotune_level=1 --xla_gpu_deterministic_ops=true",
+    "TF_CUDNN_DETERMINISTIC": "1",
+    "XLA_PYTHON_CLIENT_ALLOCATOR": "platform",
+    "XLA_PYTHON_CLIENT_MEM_FRACTION": "0.95"
+  },
+  "jax_peak_bytes_in_use": null,
+  "leakage": {
+    "not_applicable": "nonlearned observation-only planner"
+  },
+  "mode_policy_stddev_mean_active": null,
+  "initial_unknown_fraction": [
+    0.2475585639476776,
+    0.2155761420726776,
+    0.1779785007238388,
+    0.1789550483226776,
+    0.1611327975988388,
+    0.3330077528953552,
+    0.1193847581744194,
+    0.1306152194738388,
+    0.1135253831744194,
+    0.2473144233226776,
+    0.2099609076976776,
+    0.1938476264476776,
+    0.1789550483226776,
+    0.1682128608226776,
+    0.3376464247703552,
+    0.1149902269244194,
+    0.1157226487994194,
+    0.1164550706744194
+  ],
+  "summary": {
+    "valid_starts": 18,
+    "successes": 18,
+    "success_rate": 1.0,
+    "failure_code_counts": {
+      "0": 18
+    },
+    "mean_s_at_termination": 30.049574746025932,
+    "per_map": {
+      "segment_0290": {
+        "valid": 2,
+        "successes": 2
+      },
+      "segment_0330": {
+        "valid": 2,
+        "successes": 2
+      },
+      "segment_0450": {
+        "valid": 2,
+        "successes": 2
+      },
+      "segment_0490": {
+        "valid": 2,
+        "successes": 2
+      },
+      "segment_1010": {
+        "valid": 2,
+        "successes": 2
+      },
+      "segment_1130": {
+        "valid": 2,
+        "successes": 2
+      },
+      "segment_1170": {
+        "valid": 2,
+        "successes": 2
+      },
+      "segment_1250": {
+        "valid": 2,
+        "successes": 2
+      },
+      "segment_1290": {
+        "valid": 2,
+        "successes": 2
+      }
+    }
+  },
+  "rows": {
+    "10": {
+      "ep_return": 97.72172546386719,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 16.014209747314453,
+      "steps": 254.0,
+      "valid_start": true,
+      "map": "segment_0330",
+      "active_steps": 254
+    },
+    "1": {
+      "ep_return": 97.72197723388672,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 16.026275634765625,
+      "steps": 263.0,
+      "valid_start": true,
+      "map": "segment_0330",
+      "active_steps": 263
+    },
+    "12": {
+      "ep_return": 109.65576934814453,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 17.00788116455078,
+      "steps": 279.0,
+      "valid_start": true,
+      "map": "segment_0490",
+      "active_steps": 279
+    },
+    "3": {
+      "ep_return": 109.6046142578125,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 17.00530433654785,
+      "steps": 282.0,
+      "valid_start": true,
+      "map": "segment_0490",
+      "active_steps": 282
+    },
+    "0": {
+      "ep_return": 116.05854034423828,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 20.22259521484375,
+      "steps": 331.0,
+      "valid_start": true,
+      "map": "segment_0290",
+      "active_steps": 331
+    },
+    "17": {
+      "ep_return": 153.2322235107422,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 38.80007553100586,
+      "steps": 357.0,
+      "valid_start": true,
+      "map": "segment_1290",
+      "active_steps": 357
+    },
+    "5": {
+      "ep_return": 147.10975646972656,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 35.84379196166992,
+      "steps": 373.0,
+      "valid_start": true,
+      "map": "segment_1130",
+      "active_steps": 373
+    },
+    "9": {
+      "ep_return": 115.94889068603516,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 20.20743179321289,
+      "steps": 394.0,
+      "valid_start": true,
+      "map": "segment_0290",
+      "active_steps": 394
+    },
+    "14": {
+      "ep_return": 147.0988006591797,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 35.87178039550781,
+      "steps": 429.0,
+      "valid_start": true,
+      "map": "segment_1130",
+      "active_steps": 429
+    },
+    "8": {
+      "ep_return": 153.2259063720703,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 38.845542907714844,
+      "steps": 453.0,
+      "valid_start": true,
+      "map": "segment_1290",
+      "active_steps": 453
+    },
+    "16": {
+      "ep_return": 149.2412872314453,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 38.4007568359375,
+      "steps": 469.0,
+      "valid_start": true,
+      "map": "segment_1250",
+      "active_steps": 469
+    },
+    "2": {
+      "ep_return": 128.69778442382812,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 26.623323440551758,
+      "steps": 473.0,
+      "valid_start": true,
+      "map": "segment_0450",
+      "active_steps": 473
+    },
+    "7": {
+      "ep_return": 149.2498016357422,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 38.44484329223633,
+      "steps": 473.0,
+      "valid_start": true,
+      "map": "segment_1250",
+      "active_steps": 473
+    },
+    "4": {
+      "ep_return": 149.52066040039062,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 38.86076354980469,
+      "steps": 486.0,
+      "valid_start": true,
+      "map": "segment_1010",
+      "active_steps": 486
+    },
+    "11": {
+      "ep_return": 128.60525512695312,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 26.604724884033203,
+      "steps": 495.0,
+      "valid_start": true,
+      "map": "segment_0450",
+      "active_steps": 495
+    },
+    "6": {
+      "ep_return": 152.4180908203125,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 38.616092681884766,
+      "steps": 577.0,
+      "valid_start": true,
+      "map": "segment_1170",
+      "active_steps": 577
+    },
+    "15": {
+      "ep_return": 152.4475555419922,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 38.6482048034668,
+      "steps": 618.0,
+      "valid_start": true,
+      "map": "segment_1170",
+      "active_steps": 618
+    },
+    "13": {
+      "ep_return": 149.19009399414062,
+      "failure": 0.0,
+      "gates": 8.0,
+      "s": 38.84874725341797,
+      "steps": 659.0,
+      "valid_start": true,
+      "map": "segment_1010",
+      "active_steps": 659
+    }
+  }
+}

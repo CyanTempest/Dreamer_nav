@@ -1,0 +1,30 @@
+# Code, configs and documents only. Data, models and dataset-derived artefacts stay on the server.
+__pycache__/
+*.pyc
+.venv*/
+cache/
+tmp/
+checkpoints/
+replay/
+maps/
+maps_*/
+fullgeo/
+ray_scene/
+metrics/
+figures/
+logs/
+videos/
+*.pkl
+*.npz
+*.npy
+*.log
+*.mp4
+*.tar.gz
+# Official ATEC scan data is gated (no redistribution): never commit maps or images derived from it.
+r9_official_runner/maps_*/
+r9_official_runner/metadata/
+data/
+audit_20261116/cache/
+audit_20261116/tmp/
+audit_20261116/**/*.png
+audit_20261116/**/orig/

@@ -1,0 +1,10 @@
+{
+  "jax_allocator": "platform",
+  "dreamer_training_autotune": 1,
+  "ppo_training_xla_flags": "--xla_gpu_autotune_level=1 --xla_gpu_deterministic_ops=true",
+  "ppo_allocator": "default",
+  "evaluation_allocator": "default",
+  "jax_pool_fraction": 0.95,
+  "reason": "Release unused allocations instead of retaining fragmented BFC blocks; select collector size from real full-bank Agent and optimizer measurements. Pool fraction does not limit the platform allocator.",
+  "evaluation_autotune": 1
+}

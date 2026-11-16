@@ -1,0 +1,35 @@
+[
+  {
+    "label": "mode_r8",
+    "new": "audit_20261116/fix1/dreamer_mode_g2_s914901_r8.json",
+    "ref": "audit_20261116/results/B_dreamer_mode_g2_s914901_r8.json",
+    "episodes_new": 72,
+    "episodes_ref": 72,
+    "same_episode_ids": true,
+    "core_key_mismatches": [],
+    "all_common_key_mismatches": [],
+    "keys_only_in_new": [
+      "filter_interventions"
+    ],
+    "keys_only_in_ref": [],
+    "successes_new": "52/72",
+    "successes_ref": "52/72",
+    "filter_intervention_fraction": {
+      "new": 0.0,
+      "ref": "<missing>"
+    },
+    "valid_starts": {
+      "new": 72,
+      "ref": 72
+    },
+    "episodes": {
+      "new": 72,
+      "ref": 72
+    },
+    "action": {
+      "new": "mode",
+      "ref": "mode"
+    },
+    "PASS": true
+  }
+]

@@ -1,0 +1,16 @@
+{
+  "dreamer_envs": 4608,
+  "training_seconds_per_configuration": 18000,
+  "queue_budget_seconds": 86400,
+  "training_configurations": [
+    "dreamer_s0",
+    "ppo_s0"
+  ],
+  "target_gpu_memory_fraction": 0.9,
+  "selection": "Dreamer: lossless LZ4 RAM replay retains 4608 collectors, avoiding mapped-file cache thrashing. PPO: 640 had highest measured throughput among candidates below 90% GPU memory.",
+  "probe": "metrics/memory_probe_4608.json",
+  "dreamer_chunksize": 64,
+  "dreamer_replay_storage": "lossless_lz4_ram",
+  "ppo_envs": 640,
+  "ppo_probe": "metrics/ppo_memory_tuning_summary.json"
+}
