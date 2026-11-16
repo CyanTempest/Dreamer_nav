@@ -10,6 +10,7 @@ from pathlib import Path
 
 import numpy as np
 from scipy import ndimage as ndi
+from scipy.spatial import cKDTree
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / 'data' / 'trail_a'
@@ -117,6 +118,56 @@ def signed_distance(mask, res=RES):
     return ((ndi.distance_transform_edt(~mask) - ndi.distance_transform_edt(mask)) * res).astype(np.float32)
 
 
+def obstacle_distance(mask, points_xy, origin, cfg, res=RES, chunk=128):
+    """XY point clearance at grid centres; preserve the existing collision-cell mask.
+
+    Outside: nearest body-band collision return minus configured range noise.
+    Inside: negative centre-to-point distance (epsilon at an exact return). This
+    is a sign convention, not a reconstruction of solid object interiors.
+    `grid` selects the unchanged v6 EDT, including its empty/full conventions.
+    """
+    mode = cfg['obstacles']['distance_method']
+    if mode == 'grid':
+        return signed_distance(mask, res)
+    if mode != 'points':
+        raise ValueError('obstacles.distance_method must be points or grid')
+    noise = cfg['obstacles']['distance_noise_m']
+    if noise < 0:
+        raise ValueError('obstacles.distance_noise_m must be nonnegative')
+    if not np.any(mask):
+        return np.full(mask.shape, 100., np.float32)
+    if not len(points_xy):
+        raise ValueError('colliding cells require body-band collision points')
+    tree = cKDTree(points_xy)
+    out = np.empty(mask.shape, np.float32)
+    for a in range(0, mask.shape[0], chunk):
+        ii, jj = np.meshgrid(np.arange(a, min(a + chunk, mask.shape[0])),
+                             np.arange(mask.shape[1]), indexing='ij')
+        xy = np.stack([ii.ravel(), jj.ravel()], -1) * res + origin
+        d = tree.query(xy, workers=4)[0].reshape(ii.shape)
+        out[a:a + chunk] = np.where(mask[a:a + chunk],
+                                    -np.maximum(d, np.finfo(np.float32).eps), d - noise)
+    return out
+
+
+def bilinear(grid2d, origin, xy, fill=100., res=RES):
+    """Bilinear scalar sampling at cell centres, matching TrailBank.sample.
+
+    Each out-of-grid corner uses fill, rather than clipping to an edge cell.
+    """
+    p = (np.asarray(xy) - origin) / res
+    ij = np.floor(p).astype(np.int64)
+    u = p - ij
+    vals = []
+    for di, dj in ((0, 0), (1, 0), (0, 1), (1, 1)):
+        i, j = ij[..., 0] + di, ij[..., 1] + dj
+        inside = (i >= 0) & (j >= 0) & (i < grid2d.shape[0]) & (j < grid2d.shape[1])
+        vals.append(np.where(inside, grid2d[i.clip(0, grid2d.shape[0]-1),
+                                          j.clip(0, grid2d.shape[1]-1)], fill))
+    a, b, c, d = vals
+    return (a*(1-u[..., 0])+b*u[..., 0])*(1-u[..., 1]) + (c*(1-u[..., 0])+d*u[..., 0])*u[..., 1]
+
+
 def cell_index(xy, origin, res=RES):
     """Nearest-cell index, identical rounding to build_scan_patches / qualify_routes."""
     return np.floor((np.asarray(xy) - origin) / res + .5).astype(np.int64)
@@ -131,8 +182,11 @@ def footprint_world(xy, yaw):
                                                s * local[:, 0] + c * local[:, 1]], -1)
 
 
-def footprint_ok(support_sdf, obstacle_sdf, origin, xy, yaw, chunk=512):
-    """Vectorised qualify_routes.footprint_ok: all samples inside, support<=.025, obstacle>=0."""
+def footprint_ok(support_sdf, obstacle_sdf, origin, xy, yaw, chunk=512, obstacle_linear=True):
+    """All samples inside, nearest support<=.025, bilinear obstacle>=0.
+
+    obstacle_linear=False is retained for explicit historical v6 comparisons.
+    """
     out = []
     shape = support_sdf.shape
     for start in range(0, len(xy), chunk):
@@ -141,7 +195,8 @@ def footprint_ok(support_sdf, obstacle_sdf, origin, xy, yaw, chunk=512):
         inside = (ij[..., 0] >= 0) & (ij[..., 0] < shape[0]) & (ij[..., 1] >= 0) & (ij[..., 1] < shape[1])
         i = ij[..., 0].clip(0, shape[0] - 1)
         j = ij[..., 1].clip(0, shape[1] - 1)
-        out.append(np.all(inside & (support_sdf[i, j] <= .025) & (obstacle_sdf[i, j] >= 0), axis=1))
+        obs = bilinear(obstacle_sdf, origin, world) if obstacle_linear else obstacle_sdf[i, j]
+        out.append(np.all(inside & (support_sdf[i, j] <= .025) & (obs >= 0), axis=1))
     return np.concatenate(out) if out else np.zeros(0, bool)
 
 

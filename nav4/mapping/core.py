@@ -13,7 +13,7 @@ import numpy as np
 from scipy import ndimage as ndi
 from scipy.spatial import cKDTree
 
-from nav4.mapping.common import RES, signed_distance
+from nav4.mapping.common import RES, obstacle_distance, signed_distance
 from nav4.mapping.grid import band_atlas
 from nav4.mapping.ground import connected_from_seeds, polyline_distance_mask, walked_cells
 from nav4.mapping.model import (classify_obstacles, column_features, deck_over_void, ground_surface, max_step,
@@ -67,6 +67,8 @@ def run_model(cells, px, py, absnz, cls, origin, shape, coverage, z0, n0, walked
     gmax = np.where(np.isfinite(gmax), gmax, ground)
     rel_terrain = cells.z - gmax.reshape(-1)[cells.flat]
     feat = column_features(cells, relative, absnz, cls, cfg, shape, px, py, rel_terrain, origin)
+    lo, hi = cfg['obstacles']['body_band_m']
+    body = (rel_terrain > lo) & (relative < hi)  # exactly column_features' collision band
     del rel_terrain
     obs = classify_obstacles(feat, known, cfg, dist=dist_walk)
     log('obstacles done')
@@ -109,10 +111,11 @@ def run_model(cells, px, py, absnz, cls, origin, shape, coverage, z0, n0, walked
     flag[obs['obstacle']] = 2
     flag[use] = 1
     sdf = dict(support=signed_distance(support), support_cap=signed_distance(support_cap),
-               support_v5_exemption=signed_distance(support_v5_exemption),
-               obstacle_b=signed_distance(collide_b), obstacle_c=signed_distance(collide_c),
-               obstacle_all=signed_distance(collide_all), obstacle_all_c=signed_distance(collide_all_c),
-               obstacle_default_c=signed_distance(collide_default_c))
+               support_v5_exemption=signed_distance(support_v5_exemption))
+    for name, mask in dict(obstacle_b=collide_b, obstacle_c=collide_c, obstacle_all=collide_all,
+                           obstacle_all_c=collide_all_c, obstacle_default_c=collide_default_c).items():
+        hit = body & mask.reshape(-1)[cells.flat]
+        sdf[name] = obstacle_distance(mask, np.column_stack([px[hit], py[hit]]), origin, cfg)
     log('sdf done')
 
     return dict(ground=ground, known=known, atlas=atlas, gr=gr, feat=feat, obs=obs, grade=grade, step=step,

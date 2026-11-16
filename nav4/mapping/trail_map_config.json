@@ -301,6 +301,14 @@
     "solid_density_min_reference_cells": {
       "value": 50,
       "why": "Fix A: a bin needs >= 50 reference cells (p10 rank >= 5) for a stable percentile; bins with fewer take the value of the nearest valid bin."
+    },
+    "distance_method": {
+      "value": "points",
+      "why": "v7: points uses Euclidean XY distance from each grid centre to the nearest body-band return in a colliding cell. Classification, ground-relative body band and walked-corridor mask remain unchanged. grid selects the v6 signed EDT of occupied cells. XY is the horizontal collision clearance of the 1.03 x 0.58 m envelope."
+    },
+    "distance_noise_m": {
+      "value": 0.02,
+      "why": "Reuse the existing 2 cm ground/range noise estimate in obstacles.body_band_m.why (0.20 m step + 0.02 m noise), consistent with ground.layer_thickness_m.why: 5 cm is about 2-3 sigma on hard surfaces. Outside occupied cells subtract 0.02 m from nearest collision-point XY distance. Inside a cell containing collision points use minus the centre-to-nearest-point distance (at least float32 epsilon); an unsigned point cloud does not identify a solid interior. This internal sign convention retains occupied cells without inflating them by half a grid; bilinear zero contours still have residual grid-phase error."
     }
   },
   "walked_corridor": {

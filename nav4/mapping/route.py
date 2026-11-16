@@ -18,7 +18,7 @@ from scipy import ndimage as ndi
 from scipy.spatial import cKDTree
 
 from nav4.mapping.analysis import corridor_path, lateral_grid
-from nav4.mapping.common import RES, footprint_ok, footprint_world, swept_poses
+from nav4.mapping.common import RES, bilinear, footprint_ok, footprint_world, swept_poses
 
 STEP = .05     # lateral offset grid (m), same as the report and qualify_routes
 
@@ -37,7 +37,7 @@ def lateral_violations(support_sdf, obstacle_sdf, origin, xy, yaw, offsets, chun
         inside = (ij[..., 0] >= 0) & (ij[..., 0] < shape[0]) & (ij[..., 1] >= 0) & (ij[..., 1] < shape[1])
         i = ij[..., 0].clip(0, shape[0] - 1)
         j = ij[..., 1].clip(0, shape[1] - 1)
-        bad = ~inside | (support_sdf[i, j] > .025) | (obstacle_sdf[i, j] < 0)
+        bad = ~inside | (support_sdf[i, j] > .025) | (bilinear(obstacle_sdf, origin, w) < 0)
         out[a:a + chunk] = bad.sum(1)
     return out.reshape(n, k)
 

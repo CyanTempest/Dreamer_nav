@@ -38,6 +38,9 @@ class TrailEnv:
 
     def _setup(self):
         c, s = self.cfg, self.cfg['sensor']
+        if c['robot']['obstacle_sampling'] not in ('nearest', 'linear'):
+            raise ValueError('robot.obstacle_sampling must be nearest or linear')
+        self.obstacle_linear = c['robot']['obstacle_sampling'] == 'linear'
         self.local = bev_xy(c)
         window = c['task']['priv_window']
         self.extended = bev_xy(c, (window[0]//2, window[1]//2))
@@ -79,8 +82,15 @@ class TrailEnv:
         return (jnp.min(jnp.where(enabled, sd, jnp.inf), -1, initial=jnp.inf),
                 jnp.max(jnp.where(enabled & (sd < 0), ob[..., 5], 0.), -1, initial=0.))
 
+    def map_truth(self, mids, xy):
+        """Static truth: only obstacle layer 5 has configurable interpolation."""
+        data = self.bank.sample(mids, xy)
+        if self.obstacle_linear:
+            data = data.at[..., 5].set(self.bank.sample(mids, xy, 5, linear=True))
+        return data
+
     def truth(self, state, xy):
-        data = self.bank.sample(state['mids'], xy)
+        data = self.map_truth(state['mids'], xy)
         distance, rise = self.obstacle_geometry(state['obstacles'], xy)
         data = data.at[..., 1].set(jnp.maximum(data[..., 1], data[..., 0]+rise))
         return data.at[..., 5].set(jnp.minimum(data[..., 5], distance))
@@ -203,7 +213,7 @@ class TrailEnv:
         lateral = np.arange(-o['lateral_search'], o['lateral_search']+1e-6, o['lateral_step']).astype(np.float32)
         points = np.stack(np.meshgrid(along, lateral, indexing='ij'), -1).astype(np.float32)
         xy = p[..., None, None, :2]+rotate(points[None, None], yaw[..., None, None])
-        data = self.bank.sample(mids, xy.reshape(n, -1, 2)).reshape(xy.shape[:-1]+(7,))
+        data = self.map_truth(mids, xy.reshape(n, -1, 2)).reshape(xy.shape[:-1]+(7,))
         free = jnp.all((data[..., 2] <= self.cfg['robot']['support_limit']) & (data[..., 5] >= 0), 2)
         step, edge = o['lateral_step'], o['lateral_search']+o['lateral_step']
         left = jnp.max(jnp.where(~free & (lateral <= 0), lateral, -edge), -1)+step

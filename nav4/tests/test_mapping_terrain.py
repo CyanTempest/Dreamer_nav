@@ -352,7 +352,7 @@ class TestContracts(unittest.TestCase):
         xy = rng.uniform([1.5, 2.5], [6.5, 6.5], (300, 2))
         yaw = rng.uniform(-np.pi, np.pi, 300)
         ref = qualify_routes.footprint_ok(data, xy, yaw)
-        ours = footprint_ok(layers[..., 2], layers[..., 5], data['origin'], xy, yaw)
+        ours = footprint_ok(layers[..., 2], layers[..., 5], data['origin'], xy, yaw, obstacle_linear=False)
         np.testing.assert_array_equal(ours, ref)
 
 

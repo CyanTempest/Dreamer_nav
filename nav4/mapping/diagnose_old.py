@@ -19,7 +19,7 @@ import numpy as np
 
 from nav4.mapping.analysis import (ROBOT_W, blocking_runs, feasible_width, footprint_cells, lateral_feasibility,
                                    lookup)
-from nav4.mapping.common import DATA, ROOT, footprint_ok, signed_distance, write_json
+from nav4.mapping.common import DATA, ROOT, bilinear, footprint_ok, footprint_world, signed_distance, write_json
 from nav4.mapping.grid import load_centreline
 
 OLD_SURVEY = ROOT / 'r9_official_runner' / 'maps_scan_survey'
@@ -31,7 +31,7 @@ def station_causes(masks, origin, xy, yaw):
     ij, inside = footprint_cells(origin, shape, xy, yaw)
     kn = known[ij[..., 0], ij[..., 1]] & inside
     su = support[ij[..., 0], ij[..., 1]] & inside
-    ob = obstacle[ij[..., 0], ij[..., 1]] & inside
+    ob = (bilinear(signed_distance(obstacle), origin, footprint_world(xy, yaw)) < 0) & inside
     unknown = ~kn
     steep = kn & ~su
     clear = su & ~ob
@@ -49,11 +49,10 @@ def station_causes(masks, origin, xy, yaw):
 def clear_lane(masks, origin, xy, yaw, half=3.0, step=.05, band=.75):
     """Contiguous lateral run of clear cells (support & not obstacle) through the
     station, measured on the lateral cut line; the run must overlap |o|<=band."""
-    clear = masks['support'] & ~masks['obstacle']
     offs = np.arange(-half, half + 1e-9, step)
     normal = np.stack([-np.sin(yaw), np.cos(yaw)], -1)
     pts = xy[:, None] + normal[:, None] * offs[None, :, None]
-    c = lookup(clear, origin, pts, False)
+    c = lookup(masks['support'], origin, pts, False) & (bilinear(signed_distance(masks['obstacle']), origin, pts) >= 0)
     out = np.zeros(len(xy))
     near = np.abs(offs) <= band
     for i, row in enumerate(c):

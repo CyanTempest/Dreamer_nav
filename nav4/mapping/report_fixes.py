@@ -7,7 +7,7 @@ import json
 import numpy as np
 
 from nav4.mapping.analysis import ROBOT_W, blocking_runs, lookup
-from nav4.mapping.common import DATA, RES, footprint_world
+from nav4.mapping.common import DATA, RES, bilinear, footprint_world
 from nav4.mapping.route import lateral_violations
 
 V5 = DATA / 'v5_before_fix'
@@ -58,12 +58,12 @@ def best_offset_cells(sup_sdf, obs_sdf, origin, xy, yaw, i, offsets):
     k = int(np.argmin(viol))
     nrm = np.array([-np.sin(yaw[i]), np.cos(yaw[i])])
     w = footprint_world((xy[i] + nrm * offsets[k])[None], yaw[i:i + 1])[0]
-    ij = np.unique(np.floor((w - origin) / RES + .5).astype(np.int64), axis=0)
+    ij = np.floor((w - origin) / RES + .5).astype(np.int64)
     ij[:, 0] = ij[:, 0].clip(0, sup_sdf.shape[0] - 1)
     ij[:, 1] = ij[:, 1].clip(0, sup_sdf.shape[1] - 1)
     bs = sup_sdf[ij[:, 0], ij[:, 1]] > .025
-    bo = obs_sdf[ij[:, 0], ij[:, 1]] < 0
-    return float(offsets[k]), int(viol[k]), ij[bs], ij[bo]
+    bo = bilinear(obs_sdf, origin, w) < 0
+    return float(offsets[k]), int(viol[k]), np.unique(ij[bs], axis=0), np.unique(ij[bo], axis=0)
 
 
 def blocker_causes(m, aux, xy, yaw, s, d, cfg):

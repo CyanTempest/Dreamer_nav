@@ -267,7 +267,12 @@ def main():
     if v5 is not None:
         variants['v5_b_no_prior'] = (v5['map']['layers'][..., 2], v5['aux']['obstacle_sdf_b'], v5['map']['origin'].astype(np.float64))
         variants['v5_c_with_prior'] = (v5['map']['layers'][..., 2], v5['map']['layers'][..., 5], v5['map']['origin'].astype(np.float64))
-    results, per = {}, {}
+    results, per = dict(obstacle_sampling='bilinear (layer 5 only; support remains nearest)',
+                        obstacle_distance=raw['obstacles']['distance_method'],
+                        distance_noise=raw['obstacles']['distance_noise_m'],
+                        comparison_note='Historical-map variants here are also sampled bilinearly. '
+                                        'Original v6 nearest counts remain in v6_before_subcell/report.json; '
+                                        'diagnose_subcell recomputes both samplers explicitly.'), {}
     for name, (sup, obs, org) in variants.items():
         rec, d = evaluate(name, sup, obs, org, xy, yaw, s, cfg)
         results[name] = rec
