@@ -1,0 +1,792 @@
+{
+ "args": {
+  "manifest": "r9_official_runner/maps_scan_holdout",
+  "maps": [
+   "segment_0450"
+  ],
+  "method": "planner",
+  "checkpoint": null,
+  "action": "sample",
+  "repeats": 16,
+  "seed": 914901,
+  "output": "audit_20261116/nav4_dev/diag_c2_0450_default_s914901.json",
+  "assist": false,
+  "max_assists": null,
+  "max_steps": null,
+  "env": null,
+  "planner": null,
+  "plot": false
+ },
+ "method": "planner",
+ "action": null,
+ "seed": 914901,
+ "episodes": 16,
+ "maps": [
+  "segment_0450"
+ ],
+ "manifest_sha256": "b53af64e132ccc7bba4add19ec94c88f6a5452c17a9d542947bf0b4fd7392ba6",
+ "checkpoint_sha256": null,
+ "env_config": {
+  "route_inputs": true,
+  "timing": {
+   "dt": 0.2,
+   "substeps": 4
+  },
+  "action": {
+   "radius": [
+    0.5,
+    3.0
+   ],
+   "bearing_deg": 60.0,
+   "speed": [
+    0.0,
+    0.8
+   ]
+  },
+  "tracker": {
+   "motor_tau": 0.18,
+   "yaw_gain": 2.0,
+   "norm_floor": 0.15,
+   "max_yaw_rate": 0.75,
+   "max_accel": 0.65,
+   "max_yaw_accel": 1.2
+  },
+  "dynamics": {
+   "delay_s": [
+    0.05,
+    0.25
+   ],
+   "gain": [
+    0.8,
+    1.1
+   ],
+   "slip_std": 0.018,
+   "slip_full_speed": 0.5
+  },
+  "speed_limit": {
+   "max": 0.8,
+   "steep": 0.28,
+   "steep_probe": 0.42,
+   "steep_rise": 0.12,
+   "slow_type": 2,
+   "slow_probe": 0.4
+  },
+  "robot": {
+   "envelope": [
+    1.03,
+    0.58
+   ],
+   "footprint_grid": [
+    43,
+    25
+   ],
+   "support_limit": 0.025
+  },
+  "terrain": {
+   "max_step": 0.2,
+   "max_grade_deg": 35.0,
+   "collision_height": 0.22
+  },
+  "bev": {
+   "size": 64,
+   "res": 0.125,
+   "rear": 2.0,
+   "scale": [
+    0.25,
+    0.5,
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "offset": [
+    0.5,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  "memory": {
+   "size": 128,
+   "seconds": 8.0,
+   "observation_delay": 1
+  },
+  "sensor": {
+   "atlas_bands": 3,
+   "band_coverage": 0.05,
+   "ground_opening": 5,
+   "blind": [
+    0.49,
+    0.29
+   ],
+   "horizon_tolerance": 0.025,
+   "horizon_min_range": 0.08,
+   "polar_angles": 256,
+   "polar_bins": 64,
+   "polar_res": 0.125,
+   "lidars": [
+    {
+     "xy": [
+      0.36615,
+      0.0
+     ],
+     "z": 0.48905,
+     "axis": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "xy": [
+      -0.35207,
+      0.016108
+     ],
+     "z": 0.50095,
+     "axis": [
+      -0.9999,
+      -0.007256,
+      0.012223
+     ]
+    }
+   ],
+   "lidar_range": [
+    0.1,
+    60.0
+   ],
+   "lidar_vertical_deg": [
+    -0.07,
+    0.88,
+    1.81,
+    2.76,
+    3.69,
+    4.62,
+    5.54,
+    6.48,
+    7.41,
+    8.34,
+    9.27,
+    10.21,
+    11.15,
+    12.09,
+    13.03,
+    13.98,
+    14.92,
+    15.87,
+    16.82,
+    17.77,
+    18.72,
+    19.67,
+    20.62,
+    21.57,
+    22.51,
+    23.45,
+    24.4,
+    25.33,
+    26.28,
+    27.21,
+    28.15,
+    29.08,
+    30.02,
+    30.95,
+    31.88,
+    32.82,
+    33.74,
+    34.68,
+    35.62,
+    36.55,
+    37.5,
+    38.43,
+    39.37,
+    40.31,
+    41.25,
+    42.21,
+    43.16,
+    44.09,
+    45.05,
+    46.0,
+    46.95,
+    47.9,
+    48.85,
+    49.8,
+    50.73,
+    51.69,
+    52.62,
+    53.56,
+    54.5,
+    55.45,
+    56.37,
+    57.3,
+    58.24,
+    59.18,
+    60.12,
+    61.05,
+    61.99,
+    62.93,
+    63.86,
+    64.81,
+    65.76,
+    66.69,
+    67.65,
+    68.6,
+    69.56,
+    70.51,
+    71.46,
+    72.42,
+    73.37,
+    74.33,
+    75.29,
+    76.24,
+    77.19,
+    78.14,
+    79.07,
+    80.02,
+    80.96,
+    81.9,
+    82.84,
+    83.78,
+    84.7,
+    85.64,
+    86.57,
+    87.52,
+    88.46,
+    89.4
+   ],
+   "camera": {
+    "xy": [
+     0.3,
+     0.0
+    ],
+    "z": 0.64,
+    "range": [
+     0.5,
+     20.0
+    ],
+    "half_hfov_deg": 45.0,
+    "half_vfov_deg": 32.5
+   },
+   "height_std": [
+    0.015,
+    0.035
+   ],
+   "dropout_base": [
+    0.015,
+    0.045
+   ],
+   "dropout_distance": [
+    0.0,
+    0.0005
+   ],
+   "velocity_std": 0.01
+  },
+  "localization": {
+   "position_walk_std": 0.0015,
+   "yaw_walk_std": 0.0007,
+   "reversion": 0.002
+  },
+  "task": {
+   "route_start": 2.0,
+   "train_route_start_p": 0.1,
+   "train_min_remaining": 5.0,
+   "start_lateral": 0.06,
+   "start_yaw_std": 0.02,
+   "project_window": 5.0,
+   "waypoints": [
+    1.0,
+    2.0,
+    3.0
+   ],
+   "waypoint_scale": 4.0,
+   "off_route_margin": 0.35,
+   "max_reverse": 2.0,
+   "stuck_seconds": 35.0,
+   "stuck_progress": 0.015,
+   "timeout_speed": 0.1,
+   "priv_window": [
+    9,
+    5
+   ],
+   "priv_margin": 0.045
+  },
+  "reward": {
+   "progress": 2.0,
+   "progress_clip": 0.5,
+   "gate": 10.0,
+   "failure": 15.0,
+   "time": 0.001,
+   "smooth": 0.05,
+   "clearance": 0.04,
+   "clearance_distance": 0.5,
+   "lateral": 0.03,
+   "lateral_floor": 0.1
+  },
+  "obstacles": {
+   "count": 0,
+   "half_size": [
+    0.12,
+    0.24
+   ],
+   "log_factor": 1.8,
+   "height": 0.34,
+   "passage_margin": 0.1,
+   "end_margin": [
+    5.0,
+    2.0
+   ],
+   "lateral_search": 2.0,
+   "lateral_step": 0.025
+  },
+  "assist": {
+   "advance": 1.0,
+   "search": 3.0,
+   "station_step": 0.1,
+   "offsets": [
+    0.0,
+    -0.1,
+    0.1,
+    -0.2,
+    0.2,
+    -0.3,
+    0.3
+   ],
+   "end_clearance": 0.2
+  }
+ },
+ "planner_config": {
+  "candidates": 15,
+  "max_offset": 0.84,
+  "lookahead": 1.2,
+  "path_length": 5.0,
+  "horizon_s": 3.0,
+  "speed": 0.5,
+  "slow_speed": 0.28,
+  "brake_speed": 0.12,
+  "obstacle_height": 0.2,
+  "nearby_x": [
+   0.1,
+   4.0
+  ],
+  "nearby_y": 1.5,
+  "footprint_grid": [
+   7,
+   5
+  ],
+  "footprint_margin": 0.04,
+  "prediction_delay_s": 0.15,
+  "prediction_gain": 1.0,
+  "weights": {
+   "risk": 5000.0,
+   "border": 3000.0,
+   "unknown": 0.02,
+   "offset": 1.0
+  },
+  "brake_threshold": 0.02,
+  "filter": {
+   "horizon_s": 0.8,
+   "margin": 0.08,
+   "footprint_grid": [
+    7,
+    5
+   ],
+   "path_fractions": [
+    0.15,
+    0.3,
+    0.5,
+    0.7,
+    1.0
+   ],
+   "assess_x": [
+    -0.515,
+    -0.25,
+    0.0,
+    0.25,
+    0.515
+   ],
+   "assess_y": [
+    -0.29,
+    0.0,
+    0.29
+   ],
+   "body": [
+    0.54,
+    0.32
+   ],
+   "obstacle_height": 0.21,
+   "max_risk": 0.01,
+   "max_unknown": 0.65,
+   "max_corridor": 0.15,
+   "hold_steps": 5
+  }
+ },
+ "loop_steps": 539,
+ "budget": 2460,
+ "seconds": 45.435625314712524,
+ "jax_peak_bytes_in_use": null,
+ "leakage": null,
+ "summary": {
+  "traverses": 16,
+  "strict_completions": 12,
+  "strict_completion_rate": 0.75,
+  "completions_within_3_assists": 12,
+  "completions_any_assists": 12,
+  "assists": 0,
+  "route_m_covered": 361.69873046875,
+  "assists_per_100m": 0.0,
+  "first_failure_codes": {
+   "0": 12,
+   "1": 3,
+   "2": 1
+  },
+  "all_failure_codes": {
+   "1": 3,
+   "2": 1
+  },
+  "mean_final_station": 24.606170654296875,
+  "mean_speed": 0.2584379832498905,
+  "takeover_fraction": 0.0,
+  "per_map": {
+   "segment_0450": {
+    "traverses": 16,
+    "strict": 12,
+    "within_3_assists": 12,
+    "assists": 0
+   }
+  }
+ },
+ "rows": [
+  {
+   "slot": 0,
+   "map": "segment_0450",
+   "map_index": 0,
+   "valid_start": true,
+   "start_station": 2.0,
+   "final_target": 26.600000381469727,
+   "success": false,
+   "arrived": false,
+   "truncated": false,
+   "assists": 0,
+   "restarts_without_feasible_pose": 0,
+   "failures": [
+    [
+     1,
+     16.435731887817383,
+     -241.00340270996094,
+     86.11064147949219
+    ]
+   ],
+   "final_station": 16.435731887817383,
+   "steps": 308,
+   "distance": 14.319111824035645,
+   "active_steps": 308,
+   "takeover_steps": 0
+  },
+  {
+   "slot": 1,
+   "map": "segment_0450",
+   "map_index": 0,
+   "valid_start": true,
+   "start_station": 2.0,
+   "final_target": 26.600000381469727,
+   "success": true,
+   "arrived": true,
+   "truncated": false,
+   "assists": 0,
+   "restarts_without_feasible_pose": 0,
+   "failures": [],
+   "final_station": 26.645322799682617,
+   "steps": 500,
+   "distance": 24.473482131958008,
+   "active_steps": 500,
+   "takeover_steps": 0
+  },
+  {
+   "slot": 2,
+   "map": "segment_0450",
+   "map_index": 0,
+   "valid_start": true,
+   "start_station": 2.0,
+   "final_target": 26.600000381469727,
+   "success": true,
+   "arrived": true,
+   "truncated": false,
+   "assists": 0,
+   "restarts_without_feasible_pose": 0,
+   "failures": [],
+   "final_station": 26.64365577697754,
+   "steps": 465,
+   "distance": 24.478483200073242,
+   "active_steps": 465,
+   "takeover_steps": 0
+  },
+  {
+   "slot": 3,
+   "map": "segment_0450",
+   "map_index": 0,
+   "valid_start": true,
+   "start_station": 2.0,
+   "final_target": 26.600000381469727,
+   "success": true,
+   "arrived": true,
+   "truncated": false,
+   "assists": 0,
+   "restarts_without_feasible_pose": 0,
+   "failures": [],
+   "final_station": 26.630041122436523,
+   "steps": 538,
+   "distance": 24.499820709228516,
+   "active_steps": 538,
+   "takeover_steps": 0
+  },
+  {
+   "slot": 4,
+   "map": "segment_0450",
+   "map_index": 0,
+   "valid_start": true,
+   "start_station": 2.0,
+   "final_target": 26.600000381469727,
+   "success": true,
+   "arrived": true,
+   "truncated": false,
+   "assists": 0,
+   "restarts_without_feasible_pose": 0,
+   "failures": [],
+   "final_station": 26.611652374267578,
+   "steps": 426,
+   "distance": 24.427602767944336,
+   "active_steps": 426,
+   "takeover_steps": 0
+  },
+  {
+   "slot": 5,
+   "map": "segment_0450",
+   "map_index": 0,
+   "valid_start": true,
+   "start_station": 2.0,
+   "final_target": 26.600000381469727,
+   "success": true,
+   "arrived": true,
+   "truncated": false,
+   "assists": 0,
+   "restarts_without_feasible_pose": 0,
+   "failures": [],
+   "final_station": 26.650480270385742,
+   "steps": 493,
+   "distance": 24.45478057861328,
+   "active_steps": 493,
+   "takeover_steps": 0
+  },
+  {
+   "slot": 6,
+   "map": "segment_0450",
+   "map_index": 0,
+   "valid_start": true,
+   "start_station": 2.0,
+   "final_target": 26.600000381469727,
+   "success": false,
+   "arrived": false,
+   "truncated": false,
+   "assists": 0,
+   "restarts_without_feasible_pose": 0,
+   "failures": [
+    [
+     1,
+     16.695526123046875,
+     -240.7733154296875,
+     86.238525390625
+    ]
+   ],
+   "final_station": 16.695526123046875,
+   "steps": 256,
+   "distance": 14.578439712524414,
+   "active_steps": 256,
+   "takeover_steps": 0
+  },
+  {
+   "slot": 7,
+   "map": "segment_0450",
+   "map_index": 0,
+   "valid_start": true,
+   "start_station": 2.0,
+   "final_target": 26.600000381469727,
+   "success": true,
+   "arrived": true,
+   "truncated": false,
+   "assists": 0,
+   "restarts_without_feasible_pose": 0,
+   "failures": [],
+   "final_station": 26.651201248168945,
+   "steps": 411,
+   "distance": 24.467466354370117,
+   "active_steps": 411,
+   "takeover_steps": 0
+  },
+  {
+   "slot": 8,
+   "map": "segment_0450",
+   "map_index": 0,
+   "valid_start": true,
+   "start_station": 2.0,
+   "final_target": 26.600000381469727,
+   "success": false,
+   "arrived": false,
+   "truncated": false,
+   "assists": 0,
+   "restarts_without_feasible_pose": 0,
+   "failures": [
+    [
+     1,
+     16.755924224853516,
+     -240.72169494628906,
+     86.27116394042969
+    ]
+   ],
+   "final_station": 16.755924224853516,
+   "steps": 259,
+   "distance": 14.664977073669434,
+   "active_steps": 259,
+   "takeover_steps": 0
+  },
+  {
+   "slot": 9,
+   "map": "segment_0450",
+   "map_index": 0,
+   "valid_start": true,
+   "start_station": 2.0,
+   "final_target": 26.600000381469727,
+   "success": false,
+   "arrived": false,
+   "truncated": false,
+   "assists": 0,
+   "restarts_without_feasible_pose": 0,
+   "failures": [
+    [
+     2,
+     24.23126983642578,
+     -234.5884246826172,
+     90.28507995605469
+    ]
+   ],
+   "final_station": 24.23126983642578,
+   "steps": 400,
+   "distance": 22.089069366455078,
+   "active_steps": 400,
+   "takeover_steps": 0
+  },
+  {
+   "slot": 10,
+   "map": "segment_0450",
+   "map_index": 0,
+   "valid_start": true,
+   "start_station": 2.0,
+   "final_target": 26.600000381469727,
+   "success": true,
+   "arrived": true,
+   "truncated": false,
+   "assists": 0,
+   "restarts_without_feasible_pose": 0,
+   "failures": [],
+   "final_station": 26.623395919799805,
+   "steps": 518,
+   "distance": 24.437742233276367,
+   "active_steps": 518,
+   "takeover_steps": 0
+  },
+  {
+   "slot": 11,
+   "map": "segment_0450",
+   "map_index": 0,
+   "valid_start": true,
+   "start_station": 2.0,
+   "final_target": 26.600000381469727,
+   "success": true,
+   "arrived": true,
+   "truncated": false,
+   "assists": 0,
+   "restarts_without_feasible_pose": 0,
+   "failures": [],
+   "final_station": 26.616153717041016,
+   "steps": 466,
+   "distance": 24.43911361694336,
+   "active_steps": 466,
+   "takeover_steps": 0
+  },
+  {
+   "slot": 12,
+   "map": "segment_0450",
+   "map_index": 0,
+   "valid_start": true,
+   "start_station": 2.0,
+   "final_target": 26.600000381469727,
+   "success": true,
+   "arrived": true,
+   "truncated": false,
+   "assists": 0,
+   "restarts_without_feasible_pose": 0,
+   "failures": [],
+   "final_station": 26.648334503173828,
+   "steps": 409,
+   "distance": 24.472448348999023,
+   "active_steps": 409,
+   "takeover_steps": 0
+  },
+  {
+   "slot": 13,
+   "map": "segment_0450",
+   "map_index": 0,
+   "valid_start": true,
+   "start_station": 2.0,
+   "final_target": 26.600000381469727,
+   "success": true,
+   "arrived": true,
+   "truncated": false,
+   "assists": 0,
+   "restarts_without_feasible_pose": 0,
+   "failures": [],
+   "final_station": 26.634265899658203,
+   "steps": 507,
+   "distance": 24.44400405883789,
+   "active_steps": 507,
+   "takeover_steps": 0
+  },
+  {
+   "slot": 14,
+   "map": "segment_0450",
+   "map_index": 0,
+   "valid_start": true,
+   "start_station": 2.0,
+   "final_target": 26.600000381469727,
+   "success": true,
+   "arrived": true,
+   "truncated": false,
+   "assists": 0,
+   "restarts_without_feasible_pose": 0,
+   "failures": [],
+   "final_station": 26.621780395507812,
+   "steps": 475,
+   "distance": 24.461315155029297,
+   "active_steps": 475,
+   "takeover_steps": 0
+  },
+  {
+   "slot": 15,
+   "map": "segment_0450",
+   "map_index": 0,
+   "valid_start": true,
+   "start_station": 2.0,
+   "final_target": 26.600000381469727,
+   "success": true,
+   "arrived": true,
+   "truncated": false,
+   "assists": 0,
+   "restarts_without_feasible_pose": 0,
+   "failures": [],
+   "final_station": 26.603994369506836,
+   "steps": 517,
+   "distance": 24.417564392089844,
+   "active_steps": 517,
+   "takeover_steps": 0
+  }
+ ]
+}
