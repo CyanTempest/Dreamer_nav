@@ -45,7 +45,8 @@ class SupportMask(unittest.TestCase):
         self.assertTrue(mask(h).all())
 
     def test_steep_plane_unsupported(self):
-        self.assertFalse(mask(np.tan(np.deg2rad(40))*X)[1:-1].any())
+        self.assertTrue(mask(np.tan(np.deg2rad(40))*X)[1:-1].all())
+        self.assertFalse(mask(np.tan(np.deg2rad(48))*X)[1:-1].any())  # confirmed limit: 47 deg / 1 m
 
     def test_ledge_step_and_obstacle(self):
         m = mask(np.where(X > 2, -.5, 0.))
@@ -66,7 +67,8 @@ class SupportMask(unittest.TestCase):
         self.assertGreater(min(mask(stairs+rng.normal(0, .025, X.shape)).mean() for _ in range(5)), .98)
         ramp = np.tan(np.deg2rad(20))*X
         self.assertGreater(min(mask(ramp+rng.normal(0, .025, X.shape)).mean() for _ in range(5)), .99)
-        self.assertFalse(mask(np.floor(np.clip(X, 0, None)/.3)*.25)[(X > 0) & (X < 5)].all())   # 0.25 m risers
+        self.assertTrue(mask(np.floor(np.clip(X, 0, None)/.3)*.25)[(X > 0) & (X < 5)].all())  # within 0.28 m
+        self.assertFalse(mask(np.floor(np.clip(X, 0, None)/.3)*.40)[(X > 0) & (X < 5)].all())
 
 
 class Observed(unittest.TestCase):

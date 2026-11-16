@@ -263,8 +263,7 @@ class TestSubSurfaceReflection(unittest.TestCase):
 
 
 class TestTrailExemptionAndCorridor(unittest.TestCase):
-    """A 0.25 m riser across the walked path: supported in the trail zone (user: trail terrain
-    is traversable), unsupported away from it.  A post 0.2 m from the path is hard; it collides
+    """A 0.25 m riser is within the confirmed capability, both on and off the path.  A post 0.2 m from the path is hard; it collides
     without the walked-corridor prior (b) and not with it (c)."""
     H = .25
 
@@ -284,14 +283,12 @@ class TestTrailExemptionAndCorridor(unittest.TestCase):
         sc.add(2.0 + .04 * np.cos(th), 3.2 + .04 * np.sin(th), rng.uniform(0, 1.2, n), np.zeros(n, np.float32), cls=13)
         cls.r = sc.run(cls.zf)
 
-    def test_riser_exempt_only_in_trail_zone(self):
+    def test_025_riser_supported_without_location_exemption(self):
         gx, gy = self.r['gx'], self.r['gy']
-        edge = np.abs(gx - 4.) <= .1
-        for j in np.flatnonzero((gy[0] > 1) & (gy[0] < 5)):
-            self.assertFalse(self.r['support_cap'][edge[:, j], j].all(), '0.25 m > 0.20 m step')
-        self.assertTrue(self.r['support'][edge & (np.abs(gy - 3.) <= .3)].all(), 'walked trail terrain exempt')
-        for j in np.flatnonzero((np.abs(gy[0] - 3.) >= 1.0) & (gy[0] > .5) & (gy[0] < 5.5)):
-            self.assertFalse(self.r['support'][edge[:, j], j].all())
+        edge = (np.abs(gx - 4.) <= .1) & (gy > .5) & (gy < 5.5)
+        self.assertTrue(self.r['support_cap'][edge].all(), '0.25 m <= confirmed 0.28 m')
+        self.assertTrue(self.r['support'][edge].all())
+        self.assertFalse(self.r['exempt'][~self.r['zone_conn']].any())
 
     def test_post_hard_and_walked_corridor_prior(self):
         gx, gy = self.r['gx'], self.r['gy']

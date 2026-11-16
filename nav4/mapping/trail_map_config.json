@@ -91,7 +91,7 @@
     },
     "median_tolerance_m": {
       "value": 0.25,
-      "why": "Old proxy value; a 0.25 m deviation from the 0.5 m neighbourhood median is a pit/spike, not terrain (risers <=0.2 m pass)."
+      "why": "Unchanged ground pit/spike rejection: deviation >=0.25 m from the 0.5 m median, not a riser-height capability. A broad tread stays near its local median; final support uses terrain.max_step_m."
     },
     "envelope_radius_m": {
       "value": 0.6,
@@ -99,7 +99,7 @@
     },
     "envelope_slope_deg": {
       "value": 45.0,
-      "why": "Cone slope of the lower envelope: natural ground up to 45 deg (steeper than any supported grade) is not mistaken for an object top."
+      "why": "Unchanged 45 degree lower-envelope cone for rejecting diffuse vegetation/object tops. This is a ground extraction prior, not the sustained locomotion grade; it does not reject bare ground solely for exceeding 45 degrees."
     },
     "vegetation_top_min_m": {
       "value": 0.25,
@@ -107,7 +107,7 @@
     },
     "connect_max_dz_m": {
       "value": 0.3,
-      "why": "Ground continuity: 8-neighbour steps up to 0.30 m (max riser 0.20 m + slope 45 deg over 0.1 m) connect cells into one surface grown from the walked path."
+      "why": "Ground-surface extraction continuity: 0.30 m (confirmed 0.28 m riser plus 0.02 m ground noise). This reconstructs ground only; support still requires the uninflated 0.28 m limit."
     },
     "min_component_area_m2": {
       "value": 1.0,
@@ -143,7 +143,7 @@
     },
     "sub_surface_min_drop_m": {
       "value": 0.5,
-      "why": "The lowest layer is replaced by the walked-connected upper layer only if it lies >= 0.5 m below it (deeper than the 0.2 m step limit + ditch-edge effects); shallower differences are real terrain."
+      "why": "Replace a disconnected lowest layer only when the walked-connected upper layer is >=0.50 m higher; larger than the confirmed 0.28 m riser, preserving real shallow terrain."
     },
     "deck_over_void": {
       "value": true,
@@ -151,33 +151,37 @@
     },
     "deck_connect_max_dz_m": {
       "value": 0.05,
-      "why": "Fix C: the deck is grown over 8-neighbours whose deck layer lies within 5 cm of the neighbouring deck height (= layer_thickness_m, 2-3 sigma LiDAR range noise on hard surfaces): a continuous surface, not a separate object. 'Near-horizontal' itself = majority of layer returns with |normal_z| >= cos(max_grade_deg 35) (a surface the robot could stand on); 'bare' = layer / 0.3 m slab returns >= bare_concentration_min (not vegetation)."
+      "why": "Fix C: the deck is grown over 8-neighbours whose deck layer lies within 5 cm of the neighbouring deck height (= layer_thickness_m, 2-3 sigma LiDAR range noise on hard surfaces): a continuous surface, not a separate object. 'Near-horizontal' itself = majority of layer returns with |normal_z| >= cos(deck_max_grade_deg 35) (deck-recognition geometry, independent of locomotion grade); 'bare' = layer / 0.3 m slab returns >= bare_concentration_min (not vegetation)."
     },
     "deck_max_distance_m": {
       "value": 2.0,
       "why": "Fix C: deck growth limited to 2 m from the walked line: covers the +-0.75 m acceptance band plus the robot half-length 0.515 m and half-width 0.29 m (1.56 m) with one cell to spare; the footbridge at s 718.8 is 1.4 m wide between its rails, so its edges are reached."
+    },
+    "deck_max_grade_deg": {
+      "value": 35.0,
+      "why": "Deck identification retains the previous local-normal threshold (cos 35 degrees). This identifies a near-horizontal bridge surface, not locomotion capability; do not widen it when changing the sustained 1 m grade capability."
     }
   },
   "terrain": {
     "max_step_m": {
-      "value": 0.2,
-      "why": "Stair-mode riser capability (brief default; TO BE CONFIRMED by the user). Measured as max |dz| to known neighbours within step_radius."
+      "value": 0.28,
+      "why": "User confirmed 2026-11-16: M1 official loco stair mode traverses a 0.28 m riser. A-trail flight 2 (s 9.1-14.5 m) measured maximum 0.27707 m; round up to centimetres, with no extra capability margin. Generic capability and measured-tread support use this limit. The restored trail prior is recorded separately from quantitative capability."
     },
     "step_radius_m": {
       "value": 0.1,
-      "why": "Discontinuity = max |dz| to the 8 neighbours and axis central differences over +-0.1 m (0.2 m baseline): a riser smeared over two 0.1 m cells is still measured at full height, but only the cells on/straddling the edge are flagged (a 0.2 m dilation removed 0.2 m of usable tread beside every ditch). A 35 deg slope gives <= 0.14 m."
+      "why": "8 neighbours plus axis central differences across 0.20 m on the 0.10 m grid. A 47 degree plane rises 0.2145 m across 0.20 m, below the 0.28 m riser limit; a 0.40 m edge remains unsupported even if the 1 m grade fit averages it out."
     },
     "max_grade_deg": {
-      "value": 35.0,
-      "why": "Max sustained grade (brief default; TO BE CONFIRMED)."
+      "value": 47.0,
+      "why": "User confirmed 2026-11-16: a 47 degree grade measured over 1 m is traversable. Applied to a least-squares plane over a 1.0 m diameter disc, not to the old 0.6 m disc or sensor one-cell derivative. On a plane this equals rise/run=tan(47)=1.07237; on irregular terrain it is a stated model of the confirmed scale, not an exact conversion from local 35 degrees."
     },
     "grade_radius_m": {
-      "value": 0.3,
-      "why": "Grade = least-squares plane over a 0.6 m disc (spans two 0.3 m stair treads, so single risers are averaged; a 1.0 m disc tilted the plane of a 1.1 m-wide tread towards an adjacent ditch/bank and removed ~0.5 m of usable tread)."
+      "value": 0.5,
+      "why": "1.0 m diameter support for least-squares ground-plane grade, matching the confirmed measurement scale and sensor terrain.grade_baseline_m=1.0. Known samples only; insufficient map coverage remains unsupported. Short-baseline step test prevents smoothing across cliffs."
     },
     "trail_terrain_exemption": {
       "value": true,
-      "why": "User statement (2026-11-16): all terrain along the walked trail is traversable in stair mode. Inside the trail zone, step/grade limits are not applied; they still apply everywhere else."
+      "why": "Restore the user declaration (CLAUDE.md section 1): A-trail terrain is traversable in M1 stair mode. Restrict exemption to known trail-connected ground within the existing 0.75 m zone. Keep the original 35 degree cross-grade guard, plus separately measured tread-surface support; neither bypasses hard collision or fills unknown ground."
     },
     "trail_zone_halfwidth_m": {
       "value": 0.75,
@@ -185,11 +189,11 @@
     },
     "trail_zone_connect_max_step_m": {
       "value": 0.28,
-      "why": "Fix B: trail-zone cells must be reachable from the walked cells through 8-neighbour steps <= the maximum stair riser measured on the walked trail: 0.277 m (stair flight 2, s 9.1-14.5, report v5 'terrain.stairs'), rounded up to the cm. The user declared that riser traversable in stair mode; deeper ledges/ditches beside the trail stay unexempted. Away from the trail zone max_step_m (0.20) applies unchanged."
+      "why": "Trail exemption requires 8-neighbour connectivity with <=0.28 m changes, using the confirmed riser capability (measured maximum 0.27707 m in flight 2). Connectivity alone is insufficient: cross grade or independently measured tread capability must also pass."
     },
     "trail_zone_max_cross_grade_deg": {
       "value": 35.0,
-      "why": "Side slopes steeper than the grade limit across the trail direction are not trail terrain (not exempted). Fix B: evaluated at robot scale (cross_grade_half_width_m / cross_grade_half_length_m), not with the 0.3 m disc of grade_radius_m."
+      "why": "Restore the v7 trail exemption cross-track guard at 35 degrees. It prevents a nearby steep bank from receiving the generic trail prior. At narrow stairs the fit can include that bank; directly observed tread layers are assessed separately, without raising this guard."
     },
     "cross_grade_half_width_m": {
       "value": 0.29,
@@ -198,15 +202,23 @@
     "cross_grade_half_length_m": {
       "value": 0.515,
       "why": "Fix B: along-route half extent of that rectangle = robot half-length 0.515 m, so the plane spans >= 2 treads (tread 0.30-0.50 m) and a single riser edge does not dominate the fit (v5: a 0.3 m-radius disc gave 36-54 deg at riser edges on the bends of s 5-21)."
+    },
+    "trail_tread_support": {
+      "value": true,
+      "why": "Round-2 raw cloud at s 5.2-6.9 m shows horizontal stair treads next to a steep bank. Fitting both together overestimates tread grade/step. In the connected trail zone only, extract observed near-horizontal layers within one 0.28 m riser above ground (5 cm lower noise tolerance), then require <=0.28 m tread-to-tread discontinuity and <=47 deg plane fit over 1 m. No ground, unknown, deck or obstacle reference is rewritten."
+    },
+    "tread_max_normal_grade_deg": {
+      "value": 35.0,
+      "why": "Reuse the existing deck surface-identification normal criterion (cos 35 deg) to separate tread returns from the adjacent steep bank and vertical riser faces. This is a surface selector, not a new locomotion limit; require the existing >=2 returns in a 5 cm coherent layer, and both capability checks afterward."
     }
   },
   "obstacles": {
     "body_band_m": {
       "value": [
-        0.22,
+        0.3,
         0.8
       ],
-      "why": "Old proxy band: below 0.22 m = within stair-mode step capability (0.20 m + 2 cm ground noise); above 0.80 m = above the robot (Gemini camera at 0.64 m, body+sensors ~0.7 m, +0.1 m margin). Lower bound measured above the highest known ground in the 3x3 neighbourhood (riser/ledge faces are terrain, handled by the step test); upper bound above the cell's own ground."
+      "why": "Collision capability is >0.30 and <0.80 m above OWN-cell ground (0.30 = confirmed 0.28 m riser + existing 0.02 m noise), matching sensor obstacle height. Keep the original geometry-band terrain-face exclusion (>0.22 m above max-known 3x3 ground). A higher neighbour must not lend its full height to a tall object: round-1 audit found 77 vanished components with own-ground returns up to 0.799 m. Classify from the fixed geometry band, and retain established hard objects with any own-ground-above-cutoff return."
     },
     "body_min_points": {
       "value": 2,
@@ -226,7 +238,7 @@
     },
     "subbin_m": {
       "value": 0.0967,
-      "why": "Body band split in 6 sub-bins (0.22-0.80 m) for the vertical-continuity test."
+      "why": "Fixed geometry evidence resolution ~0.097 m over 0.22-0.80 m (6 bins, as v7); not re-binned when collision capability changes."
     },
     "linear_structure_classes": {
       "value": [
@@ -237,7 +249,7 @@
     },
     "pca_block_cells": {
       "value": 3,
-      "why": "Shape analysis in 0.3 x 0.3 m voxels, two voxels over the body band (0.22-0.51, 0.51-0.80 m): roughly isotropic boxes (trunk/post diameter scale), using true point x,y."
+      "why": "Fixed shape evidence in 0.3 x 0.3 m voxels, original geometry-band halves 0.22-0.51 and 0.51-0.80 m. True point x/y; same physical evidence thresholds."
     },
     "pca_min_points": {
       "value": 10,
@@ -309,6 +321,13 @@
     "distance_noise_m": {
       "value": 0.02,
       "why": "Reuse the existing 2 cm ground/range noise estimate in obstacles.body_band_m.why (0.20 m step + 0.02 m noise), consistent with ground.layer_thickness_m.why: 5 cm is about 2-3 sigma on hard surfaces. Outside occupied cells subtract 0.02 m from nearest collision-point XY distance. Inside a cell containing collision points use minus the centre-to-nearest-point distance (at least float32 epsilon); an unsigned point cloud does not identify a solid interior. This internal sign convention retains occupied cells without inflating them by half a grid; bilinear zero contours still have residual grid-phase error."
+    },
+    "geometry_band_m": {
+      "value": [
+        0.22,
+        0.8
+      ],
+      "why": "Keep v7 shape, continuity and density evidence in the original 0.22-0.80 m band, independent of the 0.30 m collision cutoff. Round 1 erased 347 old components despite remaining above-cutoff returns by changing PCA/sub-bin/reference populations. Classify from >=2 geometry returns, then collide only where at least one classified-object return exceeds the new cutoff. This conservatively retains established evidence without restoring low collision points."
     }
   },
   "walked_corridor": {

@@ -1,7 +1,9 @@
 """odometry_inputs / localization.mode='odometry': onboard dead reckoning (distance, heading, IMU attitude).
 
-GOLDEN is the digest of `rollout_digest()` computed with the pre-odometry env.py (commit f22abe9) on this
-server (JAX 0.4.33, CPU, XLA_FLAGS of audit_20261116/nav4_dev/env.sh). It is machine/JAX-version specific.
+GOLDEN is the digest of `rollout_digest()` with the v8 stair-capability defaults (0.28 m, 47 deg / 1 m,
+0.30 m collision band and 1 m speed probe), JAX 0.4.33, CPU, nav4_dev/env.sh XLA_FLAGS.
+The pre-capability digest was bf3701a54cb84a6fea16e01b5f0c99618b9d7c26fd70c059fd8774abb3aaaf93;
+that contract changed intentionally. This regression remains machine/JAX-version specific.
 """
 import hashlib
 import unittest
@@ -14,7 +16,7 @@ from nav4.env import TrailEnv
 from nav4.tests import synthetic
 from nav4.tests.helpers import QUIET, load
 
-GOLDEN = 'bf3701a54cb84a6fea16e01b5f0c99618b9d7c26fd70c059fd8774abb3aaaf93'
+GOLDEN = '710fa37b347b4972da708e28038c1537d60e4a5dd30c72e08bf5c8c9747d327b'
 ROUTE_START = 2.0
 ZERO = {'odometry.distance_scale_std': 0., 'odometry.heading_walk_std': 0., 'odometry.imu_std': 0.}
 ODO = {'route_inputs': False, 'odometry_inputs': True}
@@ -64,7 +66,7 @@ def drive(env, state, action, steps):
 
 
 class Default(unittest.TestCase):
-    def test_default_is_bit_identical_to_the_pre_odometry_code(self):
+    def test_default_matches_v8_capability_digest(self):
         self.assertEqual(rollout_digest(), GOLDEN)
 
     def test_odometry_changes_only_state_slots_0_to_6(self):

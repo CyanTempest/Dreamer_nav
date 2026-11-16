@@ -160,10 +160,13 @@ class TestStairsOnBendWith028Riser(unittest.TestCase):
         self.assertTrue(r['support'][self.band].mean() > .97, f"{r['support'][self.band].mean():.3f}")
         self.assertLess(np.nanmax(r['cross'][self.band]), 35.)
 
-    def test_v5_rule_cuts_the_band(self):
+    def test_trail_prior_is_enabled_and_capability_is_retained(self):
         r = self.r
-        self.assertLess(r['support_v5_exemption'][self.band].mean(), r['support'][self.band].mean())
-        self.assertGreater(np.nanmax(r['cross_disc'][self.band]), 35., 'v5 disc cross grade at riser edges')
+        self.assertTrue(CFG['terrain']['trail_terrain_exemption'])
+        self.assertTrue(r['support_cap'][self.band].all())
+        self.assertTrue(r['support'][r['support_cap']].all())
+        self.assertTrue(r['exempt'][self.band].any())
+        self.assertFalse(r['exempt'][~r['zone_conn']].any())
 
     def test_footprint_follows_the_bend(self):
         r = self.r

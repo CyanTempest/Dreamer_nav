@@ -158,7 +158,7 @@ def deck_over_void(cells, absnz, ground, known, walked_mask, prior_z, dist_walk,
     shape = ground.shape
     size = ground.size
     tol, gap = g['prior_tolerance_m'], g['second_layer_gap_m']
-    nz_min = float(np.cos(np.deg2rad(t['max_grade_deg'])))
+    nz_min = float(np.cos(np.deg2rad(g.get('deck_max_grade_deg', t['max_grade_deg']))))
     void = walked_mask & known & np.isfinite(prior_z) & (ground < prior_z - tol)
     out = dict(deck=np.zeros(shape, bool), deck_z=np.full(shape, np.nan, np.float32), void=void,
                seeds=np.zeros(shape, bool), void_without_deck=void.copy())
@@ -215,6 +215,28 @@ def deck_over_void(cells, absnz, ground, known, walked_mask, prior_z, dist_walk,
 
 
 # ---------------------------------------------------------------- terrain derivatives
+def tread_surface(cells, absnz, ground, known, cfg):
+    """Observed tread layers near the selected ground, excluding sloping banks/riser normals.
+
+    A grid cell at a diagonal riser can have its lowest layer on the vertical face.
+    Search at most one confirmed riser above that ground for coherent near-horizontal
+    returns. Never fill missing returns or change the ground/obstacle reference.
+    The caller still checks tread-to-tread step and metre-scale grade independently.
+    """
+    g, t = cfg['ground'], cfg['terrain']
+    ref = ground.reshape(-1)[cells.flat]
+    candidate = (absnz >= np.cos(np.deg2rad(t['tread_max_normal_grade_deg'])))
+    candidate &= known.reshape(-1)[cells.flat]
+    candidate &= (cells.z >= ref - g['layer_thickness_m']) & (cells.z <= ref + t['max_step_m'])
+    zlo, _ = lowest_layer(cells, candidate, g['layer_thickness_m'], g['layer_min_points'])
+    low = zlo.reshape(-1)[cells.flat]
+    member = candidate & (cells.z >= low - 1e-4) & (cells.z <= low + g['layer_thickness_m'])
+    count = cells.count(member)
+    valid = known & (count >= g['layer_min_points'])
+    z = np.where(valid, cells.sum(cells.z.astype(np.float64), member) / np.maximum(count, 1), ground)
+    return z.astype(np.float32), valid, count.astype(np.int32)
+
+
 def oriented_cross_grade(ground, known, mask, yaw, half_width, half_length):
     """Fix B.  Cross-track grade (deg) at robot scale for the cells in `mask`: least-squares plane
     over a half_length x half_width rectangle centred on the cell and aligned with the route heading
@@ -317,6 +339,21 @@ def max_step(ground, known, radius=None):
 
 
 # ---------------------------------------------------------------- obstacle features
+def collision_returns(relative, rel_terrain, cfg):
+    """Apply capability to own-ground height, after the fixed terrain-face exclusion.
+
+    A higher neighbour is useful for excluding stair faces, but must not lend its
+    full elevation to a tall object when the capability cutoff changes. Retain
+    the original geometry-band test against that neighbour; apply the new cutoff
+    only to height above the object's own ground. This is a subset of the geometry
+    evidence returns, so increasing capability never changes object shape.
+    """
+    o = cfg['obstacles']
+    lo, hi = o['body_band_m']
+    geometry_lo, geometry_hi = o.get('geometry_band_m', o['body_band_m'])
+    return (rel_terrain > geometry_lo) & (relative > lo) & (relative < min(hi, geometry_hi))
+
+
 def _voxel_pca(cflat, x, y, z, size, min_points):
     """Covariance eigen-features per voxel (cflat = voxel id)."""
     bc = lambda w: np.bincount(cflat, weights=w, minlength=size)
@@ -345,13 +382,17 @@ def _voxel_pca(cflat, x, y, z, size, min_points):
 
 
 def column_features(cells, relative, absnz, cls, cfg, shape, px, py, rel_terrain=None, origin=(0., 0.)):
-    """Per fine cell counts and per 0.3 m voxel (2 voxels over the body band) shape features.
+    """Fine-cell counts and 0.3 m voxel shape features over the fixed geometry band.
     px, py: point x, y in the cells' sorted order (float).
     rel_terrain: height above the HIGHEST known ground in the 3x3 neighbourhood; the lower
-    body-band bound uses it so that riser / ledge faces (terrain, judged by the support
-    step test) are not counted as obstacles.  The upper bound uses the cell's own ground."""
+    geometry-band bound excludes riser / ledge faces (terrain, judged by support).
+    The upper bound uses the cell's own ground. Historical feature name n_body counts
+    geometry evidence; run_model separately records n_collision after the capability cut.
+    """
     o = cfg['obstacles']
-    lo, hi = o['body_band_m']
+    # Shape evidence must not change when the traversable-height cutoff changes.
+    # Collision returns are filtered separately in run_model.
+    lo, hi = o.get('geometry_band_m', o['body_band_m'])
     rt = relative if rel_terrain is None else rel_terrain
     body = (rt > lo) & (relative < hi)
     n_body = cells.count(body)

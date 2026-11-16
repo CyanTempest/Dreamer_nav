@@ -149,6 +149,9 @@ def build(cfg, t0):
                deck=r['deck'], deck_z=dk['deck_z'], deck_seeds=dk['seeds'], void_walked=dk['void'],
                void_without_deck=dk['void_without_deck'], ground_before_deck=r['ground_v5'],
                prior_z=r['prior_z'], n_ground_layer=r['n_ground_layer'],
+               tread=r['tread'], tread_z=r['tread_z'], tread_count=r['tread_count'],
+               tread_grade_deg=r['tread_grade'].astype(np.float32), tread_step_m=r['tread_step'],
+               tread_exempt=r['tread_exempt'], n_collision=r['n_collision'],
                route_dist=rdist, route_near=rnear, device_height_m=np.float32(h_dev),
                centreline_xy=xy, centreline_yaw=yaw, centreline_s=s, centreline_dist=grid['dist'],
                centreline_near=grid['near'], centreline_feasible_width_m=fw_c.astype(np.float32),
@@ -259,7 +262,9 @@ def main():
             assumptions=dict(frame='Identity CSV-to-PLY (trajectory->cloud nearest-XY median 7 cm); no surveyed registration',
                              segment=seg['definition'], classification='Used only as hard evidence for codes 13/14 (posts/rails); never to make anything soft',
                              route='Smoothed swept-feasible path near the cleaned scanner centreline (pauses/back-and-forth removed); not an official race-route annotation',
-                             terrain='User: all walked-trail terrain is traversable in stair mode; step/grade limits exempted only in the trail zone',
+                             terrain=('User: all walked-trail terrain is traversable in stair mode; step/grade limits exempted only in the trail zone'
+                                      if cfg['terrain']['trail_terrain_exemption'] else
+                                      'Confirmed quantitative capability: short-baseline step and metre-scale grade required everywhere; no trail-zone exemption'),
                              outside_coverage='known=0, unsupported, empty atlas beyond 12 m of the centreline'))
         write_json(d / 'metadata.json', dict(record, config=raw_cfg))
         records.append(record)

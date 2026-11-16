@@ -36,13 +36,16 @@ def minmod(a, b):
 
 
 def support_mask(height, known, obstacle, cfg):
-    """Support from local geometry only (never from height relative to the robot).
+    """Support from measured geometry, independent of the robot's relative height.
 
-    Unsupported: a step to a known 8-neighbour above terrain.max_step, a grade above terrain.max_grade_deg,
-    or an obstacle at or above terrain.collision_height. Heights are first 3x3-median filtered over known
-    cells (keeps steps, removes per-cell noise). The grade per axis is the minmod of the forward and
-    backward differences, so an isolated step is judged by the step test, a continuous slope by the grade
-    test. Unknown neighbours and the BEV edge contribute no difference.
+    v8: fit a plane to known, 3x3-median-filtered samples in a disc whose diameter
+    is terrain.grade_baseline_m (1 m). A separate 8-neighbour / two-cell step test
+    prevents the metre-scale fit from averaging away ledges. Unknown cells never
+    gain support. At the BEV boundary the disc is clipped, without wrapping or
+    inventing samples; a nondegenerate fit is still required.
+
+    Explicit configs without grade_baseline_m retain the legacy one-cell minmod
+    rule when passed directly to this function (e.g. archived configurations).
     """
     t, res = cfg['terrain'], cfg['bev']['res']
     near = neighbours(known)
@@ -50,8 +53,43 @@ def support_mask(height, known, obstacle, cfg):
                  -1)[..., 4]
     diff = [jnp.where(k & known, v-h, 0.) for v, k in zip(neighbours(h), near)]
     step = jnp.max(jnp.abs(jnp.stack(diff)), 0)
-    grade = jnp.hypot(minmod(diff[6], -diff[1]), minmod(diff[4], -diff[3]))/res
-    return (known & (step <= t['max_step']) & (grade <= np.tan(np.deg2rad(t['max_grade_deg'])))
+    if 'grade_baseline_m' not in t:
+        grade = jnp.hypot(minmod(diff[6], -diff[1]), minmod(diff[4], -diff[3]))/res
+        return (known & (step <= t['max_step']) & (grade <= np.tan(np.deg2rad(t['max_grade_deg'])))
+                & (obstacle < t['collision_height']))
+
+    # Match mapping.max_step: catch a riser spread across two cells, too.
+    for plus, minus in ((6, 1), (4, 3)):
+        jump = jnp.where(known & near[plus] & near[minus], jnp.abs(diff[plus]-diff[minus]), 0.)
+        step = jnp.maximum(step, jump)
+    radius = t['grade_baseline_m']/2
+    if radius < res:
+        raise ValueError('terrain.grade_baseline_m must span at least two BEV cells')
+    r = int(np.ceil(radius/res))
+    u, v = np.mgrid[-r:r+1, -r:r+1].astype(np.float32)*res
+    disc = (u*u+v*v <= radius*radius+1e-9).astype(np.float32)
+    # Simultaneous weighted moments, SAME padding contributes zero known weight.
+    kernel = np.zeros((*disc.shape, 2, 9), np.float32)
+    for i, term in enumerate((disc, u*disc, v*disc, u*u*disc, v*v*disc, u*v*disc)):
+        kernel[..., 0, i] = term
+    for i, term in enumerate((disc, u*disc, v*disc), 6):
+        kernel[..., 1, i] = term
+    inp = jnp.stack([known.astype(h.dtype), jnp.where(known, h, 0.)], -1)
+    moments = jax.lax.conv_general_dilated(inp, jnp.asarray(kernel), (1, 1), 'SAME',
+                                         dimension_numbers=('NHWC', 'HWIO', 'NHWC'),
+                                         precision=jax.lax.Precision.HIGHEST)
+    n, sx, sy, sxx, syy, sxy, sz, sxz, syz = [moments[..., i] for i in range(9)]
+    den = jnp.maximum(n, 1.)
+    xx, yy, xy = sxx-sx*sx/den, syy-sy*sy/den, sxy-sx*sy/den
+    xz, yz = sxz-sx*sz/den, syz-sy*sz/den
+    det = xx*yy-xy*xy
+    good = (n >= 3) & (det > jnp.finfo(h.dtype).eps)
+    det = jnp.where(good, det, 1.)
+    grade = jnp.hypot((yy*xz-xy*yz)/det, (xx*yz-xy*xz)/det)
+    # Float32 convolution roundoff only (<4 micrometres at a riser), not a physical noise margin.
+    eps = 32*jnp.finfo(h.dtype).eps
+    return (known & good & (step <= t['max_step']+eps)
+            & (grade <= np.tan(np.deg2rad(t['max_grade_deg']))+eps)
             & (obstacle < t['collision_height']))
 
 

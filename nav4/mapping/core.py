@@ -16,8 +16,8 @@ from scipy.spatial import cKDTree
 from nav4.mapping.common import RES, obstacle_distance, signed_distance
 from nav4.mapping.grid import band_atlas
 from nav4.mapping.ground import connected_from_seeds, polyline_distance_mask, walked_cells
-from nav4.mapping.model import (classify_obstacles, column_features, deck_over_void, ground_surface, max_step,
-                                oriented_cross_grade, plane_gradient)
+from nav4.mapping.model import (classify_obstacles, collision_returns, column_features, deck_over_void,
+                                ground_surface, max_step, oriented_cross_grade, plane_gradient, tread_surface)
 
 
 def _edge_off(m):
@@ -67,14 +67,25 @@ def run_model(cells, px, py, absnz, cls, origin, shape, coverage, z0, n0, walked
     gmax = np.where(np.isfinite(gmax), gmax, ground)
     rel_terrain = cells.z - gmax.reshape(-1)[cells.flat]
     feat = column_features(cells, relative, absnz, cls, cfg, shape, px, py, rel_terrain, origin)
-    lo, hi = cfg['obstacles']['body_band_m']
-    body = (rel_terrain > lo) & (relative < hi)  # exactly column_features' collision band
+    body = collision_returns(relative, rel_terrain, cfg)
+    n_collision = cells.count(body).astype(np.int32)
     del rel_terrain
     obs = classify_obstacles(feat, known, cfg, dist=dist_walk)
+    # Retain classification from the fixed geometry band, then remove only cells
+    # with no above-capability collision return. The >=2 evidence floor is already
+    # enforced on the geometry band; truncation must not erase a confirmed object.
+    for key in ('obstacle', 'hard', 'soft', 'sparse', 'hard_default'):
+        obs[key] = obs[key] & (n_collision > 0)
     log('obstacles done')
     del relative
 
     gx, gy, _ = plane_gradient(ground, known, t['grade_radius_m'])
+    # Fit a detected bridge deck to its own surface, not returns in the void below.
+    # The independent short-baseline step test still cuts the deck edge.
+    if np.any(deck):
+        dx, dy, _ = plane_gradient(ground, known & deck, t['grade_radius_m'])
+        on_deck = deck & np.isfinite(dx) & np.isfinite(dy)
+        gx, gy = np.where(on_deck, dx, gx), np.where(on_deck, dy, gy)
     grade = np.degrees(np.arctan(np.hypot(gx, gy)))
     step = max_step(ground, known, t['step_radius_m'])
     cap_ok = np.nan_to_num(grade, nan=90.) <= t['max_grade_deg']
@@ -90,9 +101,22 @@ def run_model(cells, px, py, absnz, cls, origin, shape, coverage, z0, n0, walked
                                  t['cross_grade_half_length_m'])
     zone_conn = connected_from_seeds(ground, known & zone, wmask & known, t['trail_zone_connect_max_step_m'])
     exempt = zone_conn & (np.nan_to_num(cross, nan=90.) <= t['trail_zone_max_cross_grade_deg'])
+    # A side bank can dominate both the disc and cross-track fits at a narrow
+    # stair. Re-evaluate directly observed tread layers without bank normals.
+    tread_z, tread, tread_count = tread_surface(cells, absnz, ground, known, cfg)
+    tx, ty, _ = plane_gradient(tread_z, tread, t['grade_radius_m'])
+    tread_grade = np.degrees(np.arctan(np.hypot(tx, ty)))
+    tread_step = max_step(tread_z, tread, t['step_radius_m'])
+    tread_exempt = zone_conn & tread & (tread_step <= t['max_step_m'])
+    tread_exempt &= np.nan_to_num(tread_grade, nan=90.) <= t['max_grade_deg']
+    if t['trail_tread_support']:
+        exempt |= tread_exempt
+    else:
+        tread_exempt[:] = False
     if not t['trail_terrain_exemption']:
         exempt = np.zeros(shape, bool)
         exempt_v5 = np.zeros(shape, bool)
+        tread_exempt[:] = False
     support_cap = _edge_off(known & coverage & cap_ok)
     support = _edge_off(known & coverage & (cap_ok | exempt))
     support_v5_exemption = _edge_off(known & coverage & (cap_ok | exempt_v5))
@@ -124,4 +148,6 @@ def run_model(cells, px, py, absnz, cls, origin, shape, coverage, z0, n0, walked
                 support=support, support_cap=support_cap, support_v5_exemption=support_v5_exemption,
                 corridor=corridor, hard=hard, soft=soft, sparse=sparse, flag=flag, sdf=sdf, wmask=wmask,
                 collide_c=collide_c, collide_b=collide_b, deck=deck, deck_info=dk, ground_v5=ground_v5,
-                prior_z=prior_z, n_ground_layer=n_ground_layer)
+                prior_z=prior_z, n_ground_layer=n_ground_layer, n_collision=n_collision,
+                tread=tread, tread_z=tread_z, tread_count=tread_count, tread_grade=tread_grade,
+                tread_step=tread_step, tread_exempt=tread_exempt)
