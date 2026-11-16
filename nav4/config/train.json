@@ -3,7 +3,7 @@
   "maps": ["forward"],
   "seed": 0,
   "envs": 256,
-  "env": {"robot.obstacle_sampling": "linear", "route_inputs": false, "odometry_inputs": true, "priv_route": true},
+  "env": {"bev.version": "v2", "robot.obstacle_sampling": "linear", "route_inputs": false, "odometry_inputs": true, "priv_route": true},
   "model": "size12m",
   "batch_size": 16,
   "batch_length": 64,
@@ -17,7 +17,7 @@
   "eval": {"minutes": 30, "traverses": 4, "seed": 914901, "action": "mode", "assist": true, "max_assists": null,
            "max_steps": 15000},
   "notes": {
-    "env": "robot.obstacle_sampling=linear interpolates only obstacle truth layer 5 for the v7 subcell distance field; policy input variant: no map-frame inputs, onboard odometry in state slots 0-6, true route only as priv_* decoder targets; training starts follow env.json task.* (10% at the race start, else uniform)",
+    "env": "BEV v2: coherent timestamped world-cell measurements, acquisition delay compensated with estimated pose, measured neighbour-ground terrain-face exclusion and final support recomputation; same six channels, real noise/dropout/drift/blind zones retained. robot.obstacle_sampling=linear interpolates only obstacle truth layer 5; policy input variant: no map-frame inputs, onboard odometry in state slots 0-6, true route only as priv_* decoder targets; training starts follow env.json task.* (10% at the race start, else uniform)",
     "model": "size12m, batch 16 x 64, train ratio 32: the R8-P2 settings of the legacy checkpoint (nav4/policy.py make_config); the agent itself fixes these, the trainer asserts them",
     "replay": "capacity 200000 steps (R8-P2 value); 65-step sequences = batch_length + replay_context; LZ4-compressed in RAM, chunks of 64, upstream online queue",
     "warmup_steps": "batched env steps before the replay reports its items (r8 pattern): every slot then holds a full 65-step sequence and the official Ratio starts without a backlog",

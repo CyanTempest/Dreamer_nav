@@ -35,7 +35,7 @@ def minmod(a, b):
     return jnp.where(a*b > 0, jnp.sign(a)*jnp.minimum(jnp.abs(a), jnp.abs(b)), 0.)
 
 
-def support_mask(height, known, obstacle, cfg):
+def support_mask(height, known, obstacle, cfg, *, filtered=False):
     """Support from measured geometry, independent of the robot's relative height.
 
     v8: fit a plane to known, 3x3-median-filtered samples in a disc whose diameter
@@ -44,6 +44,8 @@ def support_mask(height, known, obstacle, cfg):
     gain support. At the BEV boundary the disc is clipped, without wrapping or
     inventing samples; a nondegenerate fit is still required.
 
+    filtered=True accepts the same median ground already computed by v2, so its
+    ground channel, collision reference and support use ONE surface, filtered once.
     Explicit configs without grade_baseline_m retain the legacy one-cell minmod
     rule when passed directly to this function (e.g. archived configurations).
     """
@@ -51,6 +53,8 @@ def support_mask(height, known, obstacle, cfg):
     near = neighbours(known)
     h = jnp.sort(jnp.stack([height]+[jnp.where(k, v, height) for v, k in zip(neighbours(height), near)], -1),
                  -1)[..., 4]
+    if filtered:
+        h = height
     diff = [jnp.where(k & known, v-h, 0.) for v, k in zip(neighbours(h), near)]
     step = jnp.max(jnp.abs(jnp.stack(diff)), 0)
     if 'grade_baseline_m' not in t:
@@ -180,3 +184,134 @@ def frame(env, state, key):
     obstacle = jnp.maximum(0., top-height)
     support = support_mask(height, keep, obstacle, cfg)
     return jnp.stack([height, obstacle, support.astype(jnp.float32)], -1), keep, seen
+
+
+def horizon_ok_v2(env, state, origin, zsensor, rel, rr, delta):
+    """Same physical horizon as v1, indexed by per-environment world-grid queries."""
+    s = env.cfg['sensor']
+    xy = (state['pos']+rotate(jnp.broadcast_to(origin, state['pos'].shape), state['yaw']))[:, None, None]
+    xy = xy+rotate(env.polar[None], state['yaw'])
+    top = env.bank.atlas_ground(state['mids'], xy)+env.obstacle_geometry(state['obstacles'], xy)[1]
+    slope = (top-zsensor[:, None, None])/np.maximum(env.radii, s['horizon_min_range'])
+    horizon = jax.lax.associative_scan(jnp.maximum, slope, axis=-1)
+    horizon = jnp.concatenate([jnp.full_like(horizon[..., :1], -jnp.inf), horizon[..., :-1]], -1)
+    ai = jnp.floor((jnp.arctan2(rel[..., 1], rel[..., 0])+np.pi)/(2*np.pi)*s['polar_angles']).astype(jnp.int32)
+    ri = jnp.clip(jnp.floor(rr/s['polar_res']).astype(jnp.int32), 0, s['polar_bins']-1)
+    h = horizon[jnp.arange(len(xy))[:, None, None], ai % s['polar_angles'], ri]
+    return delta/jnp.maximum(rr, s['horizon_min_range'])[..., None] >= h[..., None]-s['horizon_tolerance']
+
+
+def frame_v2(env, state, key, local):
+    """Simulate visible return intervals at world-cell centres expressed in the sensor frame.
+
+    Only this forward sensor model accesses the geometry atlas. The bottom/top of
+    visible intervals model the low/high ray returns, exactly as in v1; there is
+    no true-ground fill in unseen cells and no opening. Absolute z uses the body
+    vertical pose (the simulator has no vertical odometry error model).
+    Returns (low z, top z), keep, seen, body ground datum. No labels or support.
+    """
+    cfg, s = env.cfg, env.cfg['sensor']
+    res = cfg['bev']['res']
+    pos, yaw, mids = state['pos'], state['yaw'], state['mids']
+    world = pos[:, None, None]+rotate(local, yaw)
+    g, low, high, cover, known = env.bank.atlas(mids, world, s['atlas_bands'])
+    distance, rise = env.obstacle_geometry(state['obstacles'], world)
+    z0 = env.bank.sample(mids, pos, 0, linear=True)
+    target = jnp.concatenate([g[..., None], g[..., None]+high, (g+rise)[..., None]], -1)
+    lower = jnp.concatenate([g[..., None], g[..., None]+low, g[..., None]], -1)
+    present = jnp.concatenate([(known > .5)[..., None], (high >= 0) & (cover >= s['band_coverage']),
+                               (distance < 0)[..., None]], -1)
+    axis = jnp.eye(2, dtype=jnp.float32)*res
+    probe = world[..., None, :]+rotate(jnp.concatenate([axis, -axis]), yaw[:, None, None, None])
+    surface = env.bank.atlas_ground(mids, probe)
+    gx, gy = (surface[..., 0]-surface[..., 2])/(2*res), (surface[..., 1]-surface[..., 3])/(2*res)
+    vis = jnp.zeros(present.shape, bool)
+    for lidar in s['lidars']:
+        origin = np.array(lidar['xy'], np.float32)
+        zsensor = z0+lidar['z']
+        axis = lidar['axis']
+        rel = local-origin
+        rr = jnp.linalg.norm(rel, axis=-1)
+        rx, ry = rel[..., 0, None], rel[..., 1, None]
+        delta = target-zsensor[:, None, None, None]
+        r3 = jnp.sqrt(rr[..., None]**2+delta**2)
+        fov = (rx*axis[0]+ry*axis[1]+delta*axis[2] >= 0) & (r3 >= s['lidar_range'][0]) & (r3 <= s['lidar_range'][1])
+        # Does any of the nominal elevation angles fall inside the surface's angular footprint?
+        dz = (target+lower)*.5-zsensor[:, None, None, None]
+        proj = rx*axis[0]+ry*axis[1]+dz*axis[2]
+        r2 = rr[..., None]**2+dz**2
+        denom = jnp.maximum(r2*jnp.sqrt(jnp.maximum(r2-proj**2, 1e-8)), 1e-8)
+        ax, ay, az = [(axis[k]*r2-proj*q)/denom for k, q in enumerate((rx, ry, dz))]
+        width = res/2*(jnp.abs(ax+az*gx[..., None])+jnp.abs(ay+az*gy[..., None]))+(target-lower)*.5*jnp.abs(az)
+        angle = jnp.arcsin(jnp.clip(proj/jnp.sqrt(jnp.maximum(r2, 1e-8)), -1, 1))
+        first = jnp.clip(jnp.ceil(jnp.rad2deg(angle-width)*100).astype(jnp.int32)+100, 0, len(env.next_beam)-1)
+        fov &= env.next_beam[first] <= jnp.rad2deg(angle+width)
+        vis |= fov & horizon_ok_v2(env, state, origin, zsensor, rel, rr, delta)
+    cam = s['camera']
+    origin = np.array(cam['xy'], np.float32)
+    zsensor = z0+cam['z']
+    rel = local-origin
+    rr = jnp.linalg.norm(rel, axis=-1)
+    delta = target-zsensor[:, None, None, None]
+    forward = rel[..., 0, None]
+    fov = ((forward >= cam['range'][0]) & (forward <= cam['range'][1])
+           & (jnp.abs(rel[..., 1, None]) <= forward*np.tan(np.deg2rad(cam['half_hfov_deg'])))
+           & (jnp.abs(delta) <= forward*np.tan(np.deg2rad(cam['half_vfov_deg']))))
+    vis |= fov & horizon_ok_v2(env, state, origin, zsensor, rel, rr, delta)
+    blind = (jnp.abs(local[..., 0]) < s['blind'][0]) & (jnp.abs(local[..., 1]) < s['blind'][1])
+    vis &= present & ~blind[..., None]
+    seen = jnp.any(vis, -1)
+    ground = jnp.min(jnp.where(vis, lower, jnp.inf), -1)
+    top = jnp.max(jnp.where(vis, target, -jnp.inf), -1)
+    k_drop, k_ground, k_top = jax.random.split(key, 3)
+    std, base, per_m2 = [state['noise'][:, i, None, None] for i in range(3)]
+    dropout = jnp.clip(base+per_m2*jnp.sum(local**2, -1), 0, 1)
+    keep = seen & (jax.random.uniform(k_drop, seen.shape) >= dropout)
+    ground = ground+jax.random.normal(k_ground, seen.shape)*std
+    top = top+jax.random.normal(k_top, seen.shape)*std
+    return jnp.where(keep[..., None], jnp.stack([ground, top], -1), 0.), keep, seen, z0
+
+
+def terrain_v2(ground, top, known, cfg):
+    """Infer terrain solely from delivered measurements, at the final BEV resolution.
+
+    Mapping v8 uses top > own_ground+0.30 AND top > max3_ground+0.22.
+    Express their intersection as a height relative to one effective reference;
+    keep the six-channel contract and the unchanged 0.30 m support cutoff.
+    The same known-only 3x3 median as support_mask estimates ground from low
+    returns: an isolated elevated return must not raise the neighbourhood's
+    collision reference. Filter once, then use that surface for ALL three terrain
+    channels. Unknown neighbours contribute nothing. No opening or label is used.
+    """
+    near = neighbours(known)
+    ground = jnp.sort(jnp.stack([ground]+[jnp.where(k, v, ground)
+                                        for v, k in zip(neighbours(ground), near)], -1), -1)[..., 4]
+    nearby = jax.lax.reduce_window(jnp.where(known, ground, -jnp.inf), -jnp.inf, jax.lax.max,
+                                   (1, 3, 3), (1, 1, 1), 'SAME')
+    lift = cfg['terrain']['collision_height']-cfg['bev']['v2']['terrain_face_height']
+    reference = jnp.maximum(ground, nearby-lift)
+    obstacle = jnp.where(known, jnp.maximum(0., top-reference), 0.)
+    support = support_mask(ground, known, obstacle, cfg, filtered=True)
+    return jnp.stack([jnp.where(known, ground, 0.), obstacle, support.astype(jnp.float32)], -1)
+
+
+def update_memory_v2(memory, indices, measured, keep, stamp):
+    """Whole-tuple latest-acquisition update; duplicate queries choose the first valid source.
+
+    All queries assigned to one cell were already sampled AT that world centre;
+    only independent measurement noise can differ. A source-index reduction
+    selects one tuple, never separate extrema of its height channels.
+    """
+    n, size = memory.shape[:2]
+    count = keep.shape[1]*keep.shape[2]
+    batch = jnp.arange(n)[:, None, None]
+    inside = jnp.all((indices >= 0) & (indices < size), -1)
+    ids = jnp.arange(count, dtype=jnp.int32).reshape(1, *keep.shape[1:])
+    ij = jnp.clip(indices, 0, size-1)
+    source = jnp.full((n, size, size), count, jnp.int32).at[batch, ij[..., 0], ij[..., 1]].min(
+        jnp.where(keep & inside, ids, count))
+    incoming = measured.reshape(n, count, 2)[batch, jnp.minimum(source, count-1)]
+    timestamp = jnp.broadcast_to(stamp[:, None, None], (n, size, size))
+    incoming = jnp.concatenate([incoming, timestamp[..., None]], -1)
+    fresh = (source < count) & (timestamp >= memory[..., 2])
+    return jnp.where(fresh[..., None], incoming, memory)

@@ -38,6 +38,9 @@ class TrailEnv:
 
     def _setup(self):
         c, s = self.cfg, self.cfg['sensor']
+        if c['bev']['version'] not in ('v1', 'v2'):
+            raise ValueError('bev.version must be v1 or v2')
+        self.bev_v2 = c['bev']['version'] == 'v2'
         if c['robot']['obstacle_sampling'] not in ('nearest', 'linear'):
             raise ValueError('robot.obstacle_sampling must be nearest or linear')
         self.obstacle_linear = c['robot']['obstacle_sampling'] == 'linear'
@@ -260,6 +263,16 @@ class TrailEnv:
             restart=jnp.full((n, 2), jnp.nan))
         if self.odometry:
             state.update(self.odometry_start(k[8], mids, s, pos, state['yaw'], yaw))
+        if self.bev_v2:
+            # v2 memory=(absolute low return, absolute top return, acquisition time).
+            # Delayed packets are already registered at the acquisition-time estimated pose.
+            length = c['memory']['observation_delay']+1
+            state.update(memory=state['memory'].at[..., 2].set(-jnp.inf),
+                         bev_time=jnp.full((n,), -c['timing']['dt']),
+                         return_queue=jnp.zeros((n, length, image, image, 2)),
+                         cell_queue=jnp.zeros((n, length, image, image, 2), jnp.int32),
+                         keep_queue=jnp.zeros((n, length, image, image), bool),
+                         time_queue=jnp.full((n, length), -jnp.inf))
         if not observe:
             return state
         state, obs, extra = self._observe(state)
@@ -339,6 +352,54 @@ class TrailEnv:
         state = jax.lax.cond(jnp.any(resetting), reset_some, lambda x: x, state)
         return self._observe(state)
 
+    def observe_memory_v2(self, state, framekey, estpos, estyaw):
+        """One geometry sampling onto world cells, then one final body-frame lookup.
+
+        Query only world cells needed by the current BEV (duplicate queries are
+        selected atomically). Snap BEFORE sampling geometry: no rotated body
+        height image is splatted or spread over memory. The simulator converts
+        those queries back through true pose to model registration error.
+        Delay queues contain the measured tuple and its acquisition world cell;
+        a turn during latency never makes an old body image turn with the robot.
+        """
+        c, m, n = self.cfg, self.cfg['memory'], self.n
+        res, size = c['bev']['res'], m['size']
+        now = state['bev_time']+c['timing']['dt']
+        world = estpos[:, None, None]+rotate(self.local[None], estyaw)
+        cells = jnp.floor(world/res).astype(jnp.int32)
+        centres = (cells.astype(jnp.float32)+.5)*res
+        local = rotate(centres-estpos[:, None, None], -estyaw)
+        measured, keep, seen, znow = sensor.frame_v2(self, state, framekey, local)
+        updates = {}
+        for key, value in (('return_queue', measured), ('cell_queue', cells),
+                           ('keep_queue', keep), ('time_queue', now)):
+            q = jnp.concatenate([value[:, None], state[key][:, :-1]], 1)
+            # Same bootstrap convention as v1: reset supplies the first scan.
+            first = state['first'].reshape((n,)+(1,)*(q.ndim-1))
+            updates[key] = jnp.where(first, jnp.repeat(value[:, None], q.shape[1], axis=1), q)
+        origin = self.memory_origin(estpos)
+        shift = jnp.rint((origin-state['mempos'])/res).astype(jnp.int32)
+        old = jnp.asarray(np.indices((size, size)).transpose(1, 2, 0))[None]+shift[:, None, None]
+        inside = jnp.all((old >= 0) & (old < size), -1)
+        old = jnp.clip(old, 0, size-1)
+        batch = jnp.arange(n)[:, None, None]
+        memory = state['memory'][batch, old[..., 0], old[..., 1]]
+        memory = memory.at[..., 2].set(jnp.where(inside, memory[..., 2], -jnp.inf))
+        origin_cell = jnp.rint(origin/res).astype(jnp.int32)[:, None, None]
+        memory = sensor.update_memory_v2(memory, updates['cell_queue'][:, -1]-origin_cell,
+                                          updates['return_queue'][:, -1], updates['keep_queue'][:, -1],
+                                          updates['time_queue'][:, -1])
+        age = now[:, None, None]-memory[..., 2]
+        ij = cells-origin_cell
+        valid = jnp.all((ij >= 0) & (ij < size), -1)
+        ij = jnp.clip(ij, 0, size-1)
+        local_age = jnp.where(valid, age[batch, ij[..., 0], ij[..., 1]], jnp.inf)
+        known = local_age < m['seconds']
+        measured = memory[batch, ij[..., 0], ij[..., 1], :2]-znow[:, None, None, None]
+        terrain = sensor.terrain_v2(measured[..., 0], measured[..., 1], known, c)
+        state = {**state, **updates, 'memory': memory, 'age': age, 'mempos': origin, 'bev_time': now}
+        return state, terrain, known, local_age, seen
+
     def _observe(self, state):
         c, t, m = self.cfg, self.cfg['task'], self.cfg['memory']
         n, mids, res, size = self.n, state['mids'], self.cfg['bev']['res'], self.cfg['memory']['size']
@@ -353,28 +414,33 @@ class TrailEnv:
             estpos, estyaw = state['odo_pos'], state['yaw']+state['odo_err']
             drift = jnp.concatenate([estpos-state['pos'], state['odo_err'][:, None]], -1)
         est_s, _ = self.bank.project(mids, estpos, state['est_s'], self.window)
-        measured, keep, seen = sensor.frame(self, state, framekey)
-        # World-aligned rolling memory keyed by the ESTIMATED pose; integer-cell shifts only.
-        world = estpos[:, None, None]+rotate(self.local[None], estyaw)
-        origin = self.memory_origin(estpos)
-        shift = jnp.rint((origin-state['mempos'])/res).astype(jnp.int32)
-        old = jnp.asarray(np.indices((size, size)).transpose(1, 2, 0))[None]+shift[:, None, None]
-        inside = jnp.all((old >= 0) & (old < size), -1)
-        old = jnp.clip(old, 0, size-1)
-        batch = jnp.arange(n)[:, None, None]
-        memory = state['memory'][batch, old[..., 0], old[..., 1]]
-        age = jnp.where(inside, state['age'][batch, old[..., 0], old[..., 1]]+c['timing']['dt'], jnp.inf)
-        znow = self.bank.sample(mids, state['pos'], 0, linear=True)
-        ij = jnp.clip(jnp.floor((world-origin[:, None, None])/res).astype(jnp.int32), 0, size-1)
-        fresh = jnp.zeros((n, size, size), bool).at[batch, ij[..., 0], ij[..., 1]].max(keep)
-        absolute = measured.at[..., 0].add(znow[:, None, None])
-        updates = jnp.full_like(memory, -jnp.inf).at[batch, ij[..., 0], ij[..., 1]].max(
-            jnp.where(keep[..., None], absolute, -jnp.inf))
-        memory = jnp.where(fresh[..., None], updates, memory)
-        age = jnp.where(fresh, 0., age)
-        local_age = age[batch, ij[..., 0], ij[..., 1]]
-        known = local_age < m['seconds']
-        terrain = memory[batch, ij[..., 0], ij[..., 1]].at[..., 0].add(-znow[:, None, None])
+        if self.bev_v2:
+            state, terrain, known, local_age, seen = self.observe_memory_v2(state, framekey, estpos, estyaw)
+            memory, age, origin = state['memory'], state['age'], state['mempos']
+            world = estpos[:, None, None]+rotate(self.local[None], estyaw)
+        else:
+            measured, keep, seen = sensor.frame(self, state, framekey)
+            # World-aligned rolling memory keyed by the ESTIMATED pose; integer-cell shifts only.
+            world = estpos[:, None, None]+rotate(self.local[None], estyaw)
+            origin = self.memory_origin(estpos)
+            shift = jnp.rint((origin-state['mempos'])/res).astype(jnp.int32)
+            old = jnp.asarray(np.indices((size, size)).transpose(1, 2, 0))[None]+shift[:, None, None]
+            inside = jnp.all((old >= 0) & (old < size), -1)
+            old = jnp.clip(old, 0, size-1)
+            batch = jnp.arange(n)[:, None, None]
+            memory = state['memory'][batch, old[..., 0], old[..., 1]]
+            age = jnp.where(inside, state['age'][batch, old[..., 0], old[..., 1]]+c['timing']['dt'], jnp.inf)
+            znow = self.bank.sample(mids, state['pos'], 0, linear=True)
+            ij = jnp.clip(jnp.floor((world-origin[:, None, None])/res).astype(jnp.int32), 0, size-1)
+            fresh = jnp.zeros((n, size, size), bool).at[batch, ij[..., 0], ij[..., 1]].max(keep)
+            absolute = measured.at[..., 0].add(znow[:, None, None])
+            updates = jnp.full_like(memory, -jnp.inf).at[batch, ij[..., 0], ij[..., 1]].max(
+                jnp.where(keep[..., None], absolute, -jnp.inf))
+            memory = jnp.where(fresh[..., None], updates, memory)
+            age = jnp.where(fresh, 0., age)
+            local_age = age[batch, ij[..., 0], ij[..., 1]]
+            known = local_age < m['seconds']
+            terrain = memory[batch, ij[..., 0], ij[..., 1]].at[..., 0].add(-znow[:, None, None])
         route, _, _ = self.bank.route_at(mids, est_s[:, None]+jnp.array(t['waypoints']))
         parts = dict(terrain=jnp.where(known[..., None], terrain, 0.), unknown=~known,
                      corridor=self.bank.sample(mids, world, 3, linear=True) < 0,
@@ -422,7 +488,8 @@ class TrailEnv:
         if c['odometry_inputs']:
             odometry = parts['odometry'].astype(jnp.float32)
             vec = jnp.concatenate([odometry, vec[:, odometry.shape[1]:]], -1)
-        return dict(bev=jnp.where(state['first'][:, None, None, None], image, queue[:, -1]), state=vec,
+        delivered = image if self.bev_v2 else jnp.where(state['first'][:, None, None, None], image, queue[:, -1])
+        return dict(bev=delivered, state=vec,
                     priv_trav=(trav[..., None]*255).astype(jnp.uint8), reward=state['reward'],
                     is_first=state['first'], is_last=state['done'],
                     is_terminal=state['done'] & (state['failure'] != 5)), queue
