@@ -23,7 +23,7 @@
   - 确定性动作 100/144，采样动作 89/144。配对检验 p=0.013，但只有 9 张图，只算有迹象。
 - **清理**：删除 358.7 GB，项目从 409 GB 降到 59 GB，清单在 `audit_20261116/cleanup_manifest.txt`。保留了各轮有报告结果的最终权重。
 - **git**：`main` 已推到 GitHub（`d4f95ac`）。数据、模型、官方扫描衍生物都不入库。
-- **MATRiX 仿真器 v1.1.2**：三个分卷已在用户本机下载并通过 SHA256 校验（`~/.cache/matrix_dl/v1.1.2/`），正在传到服务器 `../matrix_sim/downloads/matrix_v1.1.2/`。接手后先在服务器上重跑 `sha256sum -c SHA256SUMS` 确认传完。
+- **MATRiX 仿真器 v1.1.2**：三个分卷（约 5 GB）已在服务器 `../matrix_sim/downloads/matrix_v1.1.2/`，服务器上 `sha256sum -c SHA256SUMS` 三项通过。还没解压，也没运行过。用户本机 `~/.cache/matrix_dl/v1.1.2/` 留有一份副本，可以删。
 
 ## 4. 做了一半、未验收
 
