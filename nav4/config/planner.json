@@ -10,5 +10,31 @@
              "path_fractions": [0.15, 0.3, 0.5, 0.7, 1.0],
              "assess_x": [-0.515, -0.25, 0.0, 0.25, 0.515], "assess_y": [-0.29, 0.0, 0.29],
              "body": [0.54, 0.32], "obstacle_height": 0.21,
-             "max_risk": 0.01, "max_unknown": 0.65, "max_corridor": 0.15, "hold_steps": 5}
+             "max_risk": 0.01, "max_unknown": 0.65, "max_corridor": 0.15, "hold_steps": 5},
+  "guard": {
+    "horizon_s": 0.8, "margin": 0.08, "footprint_grid": [7, 5],
+    "path_fractions": [0.15, 0.3, 0.5, 0.7, 1.0],
+    "assess_x": [-0.515, -0.25, 0.0, 0.25, 0.515], "assess_y": [-0.29, 0.0, 0.29],
+    "body": [0.54, 0.32], "obstacle_height": 0.21,
+    "max_risk": 0.01, "max_unknown": 0.65, "max_age": 1.0, "hold_steps": 5,
+    "bearing_offsets_deg": [-60, -40, -20, 0, 20, 40, 60], "speed_fractions": [1.0, 0.5, 0.0],
+    "radius_fractions": [1.0, 0.5, 0.0],
+    "notes": {
+      "horizon_s": "Same 0.8 s short-horizon tracker check as filter, including measured velocity and shared prediction_delay_s/gain. Known-hazard assess samples follow the predicted pose at every control substep, not the distant steering target's straight chord; a local check, not a certified stopping horizon.",
+      "margin": "Same 8 cm envelope dilation as filter for geometry and tracking uncertainty.",
+      "footprint_grid": "Same 7 by 5 envelope samples and cross dilation as filter so the support prediction is comparable.",
+      "path_fractions": "Same five near-to-target fractions as filter for the unchanged conservative full-target visibility check. Known hazards instead use the shared tracker's actual horizon trajectory.",
+      "assess_x": "Same longitudinal samples as filter spanning the M1 half-length of 0.515 m.",
+      "assess_y": "Same lateral samples as filter spanning the M1 half-width of 0.29 m.",
+      "body": "Same 0.54 by 0.32 m half-extents as filter to exclude the sensor blind patch under the body from unknown fraction.",
+      "obstacle_height": "Same 0.21 m threshold as filter, between the 0.20 m step capability and 0.22 m collision threshold.",
+      "max_risk": "Same 1% tolerance, now over assess footprint samples at every predicted control substep; the margin-dilated tracker envelope still rejects any known hazard or out-of-BEV sample.",
+      "max_unknown": "Same 65% unknown path-sample limit as filter, retaining the existing tolerance to partial occlusion.",
+      "max_age": "Normalized memory age 1 is the environment's memory expiry; expired samples count as unknown, regardless of the support value.",
+      "hold_steps": "Same five decision steps as filter (1 s at the nominal 5 Hz); continue checking and count takeover during this hold.",
+      "bearing_offsets_deg": "20 degree spacing covers a plus/minus 60 degree sector about the proposed bearing, clipped to the action limits, with zero offset included.",
+      "radius_fractions": "Keep, halve, or use the minimum permitted steering radius (zero fraction clips to action.radius[0], 0.5 m). Smaller lookahead increases tracker yaw rate at the same bearing/speed for tight bends; every candidate retains the same delayed swept-envelope check. These geometric search scales do not change safety thresholds or permit zero-speed rotation, which this tracker cannot command.",
+      "speed_fractions": "Retain, halve or remove speed above action.speed[0], allowing slower alternatives without accelerating beyond the proposal; all-unsafe fallback also commands action.speed[0] (default 0 m/s)."
+    }
+  }
 }

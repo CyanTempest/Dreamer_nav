@@ -1,4 +1,4 @@
-"""Full-route evaluation of planner / dreamer / hybrid on the maps of a manifest.
+"""Full-route evaluation of planner / dreamer / hybrid / guarded / forward on a manifest.
 
   python -m nav4.evaluate --manifest r9_official_runner/maps_scan_holdout --method planner \
       --repeats 8 --seed 914901 --output audit_20261116/nav4_dev/c2_planner_s914901.json [--assist] [--plot]
@@ -13,6 +13,8 @@ Checkpoints written by nav4.train_dreamer carry their env overrides and observat
 the overrides are applied before --env, so the evaluation uses the input variant the policy was trained on.
 Dead-reckoning planner baseline (route inputs ON, estimated pose from the odometry error model, no map-frame
 localisation): --method planner --env 'localization.mode="odometry"'.
+Route-free geometry check: --method guarded (Dreamer), or --method forward --guard (no weights).
+Forward uses action [0,0,0]: straight ahead at the midpoint of action.radius and action.speed.
 """
 import argparse
 from collections import Counter
@@ -86,7 +88,7 @@ def plot(path, bank, rows, tracks):
 
 
 def drive(env, state, obs, act, guard=None, assist=False, max_assists=None, max_steps=None):
-    """One traverse per slot from a reset at task.route_start; act(obs) -> action (guard: its Hybrid, for the
+    """One traverse per slot from a reset at task.route_start; act(obs) -> action (guard: Hybrid/Guard, for the
     takeover count). Returns (rows, tracks, loop_steps, budget, seconds)."""
     import jax
     import jax.numpy as jnp
@@ -151,8 +153,9 @@ def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--manifest', required=True, help='manifest.json or its directory')
     p.add_argument('--maps', nargs='+', help='map names to evaluate (default: every map in the manifest)')
-    p.add_argument('--method', choices=['planner', 'dreamer', 'hybrid'], required=True)
-    p.add_argument('--checkpoint', help='Dreamer checkpoint (dreamer, hybrid)')
+    p.add_argument('--method', choices=['planner', 'dreamer', 'hybrid', 'guarded', 'forward'], required=True)
+    p.add_argument('--checkpoint', help='Dreamer checkpoint (dreamer, hybrid, guarded)')
+    p.add_argument('--guard', action='store_true', help='apply route-free guard to --method forward')
     p.add_argument('--action', choices=['sample', 'mode'], default='sample', help='Dreamer action rule')
     p.add_argument('--repeats', type=int, default=8, help='traverses per map')
     p.add_argument('--seed', type=int, default=914901)
@@ -164,19 +167,22 @@ def main(argv=None):
     p.add_argument('--planner', nargs='*', metavar='KEY=JSON', help='planner.json overrides')
     p.add_argument('--plot', action='store_true', help='top-view trajectories next to the JSON')
     a = p.parse_args(argv)
-    if a.method != 'planner' and not a.checkpoint:
+    policy_method = a.method in ('dreamer', 'hybrid', 'guarded')
+    if policy_method and not a.checkpoint:
         p.error(f'{a.method} requires --checkpoint')
+    if a.guard and a.method != 'forward':
+        p.error('--guard is for --method forward; use --method guarded for Dreamer')
     import jax
     import jax.numpy as jnp
     import numpy as np
     from .bank import TrailBank, manifest_path
     from .env import TrailEnv
-    from .planner import Hybrid, Planner
+    from .planner import Guard, Hybrid, Planner
 
     out = Path(a.output)
     out.parent.mkdir(parents=True, exist_ok=True)
     payload = meta = None
-    if a.method != 'planner':
+    if policy_method:
         from .policy import read_checkpoint
         payload = read_checkpoint(a.checkpoint)
         meta = payload.get('nav4')
@@ -189,13 +195,19 @@ def main(argv=None):
     leakage, guard, dreamer = None, None, None
     if a.method == 'planner':
         act = planner
+    elif a.method == 'forward':
+        guard = Guard(planner) if a.guard else None
+        nominal = jnp.zeros((n, 3), jnp.float32)
+
+        def act(o):
+            return guard(nominal, o) if guard else nominal
     else:
         from .policy import DreamerPolicy
         dreamer = DreamerPolicy(0, str(out.parent/'policy_runtime'), jax_overrides=dict(autotune=1, deterministic=True),
                                 deterministic=a.action == 'mode', obs=meta['obs_space'] if meta else None).load(payload)
         del payload
         leakage = dreamer.leakage_check(obs)
-        guard = Hybrid(planner) if a.method == 'hybrid' else None
+        guard = Hybrid(planner) if a.method == 'hybrid' else Guard(planner) if a.method == 'guarded' else None
 
         def act(o):
             action = dreamer(o)
