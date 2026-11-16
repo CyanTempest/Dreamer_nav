@@ -2,6 +2,8 @@
 
 dreamerv3/ is used unmodified; priv_* keys are excluded from its encoder (decoder target only).
 deterministic=True acts with pol(...).pred() = tanh(mean) instead of a sample; RSSM latents are still sampled.
+The observation space is the legacy one (bev, state, priv_trav when head) unless built from an env observation
+dict or a saved spec (`spaces`); nav4.train_dreamer checkpoints carry that spec in payload['nav4']['obs_space'].
 """
 import os
 import pickle
@@ -20,6 +22,29 @@ sys.path.insert(0, str(ROOT/'dreamerv3'))
 from dreamerv3.agent import Agent  # noqa: E402
 
 
+def spaces(obs, keys=None):
+    """elements.Space per key from a batched env observation dict (leading env axis) or a saved spec
+    {key: [dtype name, shape]} (`spec`). Keys are sorted (the order of jitted env outputs), since the decoder
+    splits its image channels in key order; `keys` selects and orders a subset explicitly."""
+    out = {}
+    for k in (sorted(obs) if keys is None else keys):
+        v = obs[k]
+        dtype, shape = (v[0], tuple(v[1])) if isinstance(v, (list, tuple)) else (v.dtype, tuple(v.shape[1:]))
+        out[k] = elements.Space(np.dtype(dtype), shape)
+    return out
+
+
+def spec(obs_space):
+    """JSON/pickle-safe {key: [dtype name, shape]} of an obs space (inverse of `spaces`)."""
+    return {k: [np.dtype(s.dtype).name, list(s.shape)] for k, s in obs_space.items()}
+
+
+def read_checkpoint(path):
+    """Checkpoint payload dict (latest.pkl): 'agent' plus, for nav4.train_dreamer checkpoints, 'nav4'."""
+    with Path(path).open('rb') as stream:
+        return pickle.load(stream)
+
+
 def make_config(seed, logdir):
     cfg = yaml.YAML(typ='safe').load((ROOT/'dreamerv3/dreamerv3/configs.yaml').read_text())
     config = elements.Config(cfg['defaults']).update(cfg['size12m'])
@@ -30,14 +55,20 @@ def make_config(seed, logdir):
 
 class DreamerPolicy:
     def __init__(self, seed=0, logdir='checkpoints/dreamer', head=True, amnesic=False, jax_overrides=None,
-                 deterministic=False):
+                 deterministic=False, obs=None, keys=None):
+        """obs/keys: build the observation space with `spaces(obs, keys)` (env observation dict or saved spec)
+        instead of the legacy one; head is then whether it contains priv_trav."""
         cfg = make_config(seed, logdir)
+        if obs is None:
+            obs_space = dict(bev=elements.Space(np.uint8, (64, 64, 6)), state=elements.Space(np.float32, (13,)),
+                             reward=elements.Space(np.float32), is_first=elements.Space(bool),
+                             is_last=elements.Space(bool), is_terminal=elements.Space(bool))
+            if head:
+                obs_space['priv_trav'] = elements.Space(np.uint8, (64, 64, 1))
+        else:
+            obs_space = spaces(obs, keys)
+            head = 'priv_trav' in obs_space
         self.cfg, self.head, self.amnesic = cfg, head, amnesic
-        obs_space = dict(bev=elements.Space(np.uint8, (64, 64, 6)), state=elements.Space(np.float32, (13,)),
-                         reward=elements.Space(np.float32), is_first=elements.Space(bool),
-                         is_last=elements.Space(bool), is_terminal=elements.Space(bool))
-        if head:
-            obs_space['priv_trav'] = elements.Space(np.uint8, (64, 64, 1))
         act_space = dict(action=elements.Space(np.float32, (3,), -1, 1))
         jaxcfg = dict(cfg.jax)
         # The batched driver creates JAX arrays and reads metrics on the host.
@@ -72,7 +103,8 @@ class DreamerPolicy:
             if m.config.replay_context:
                 outs.update(elements.tree.flatdict(dict(enc=enc_entry, dyn=dyn_entry, dec=dec_entry)))
             return (enc_carry, dyn_carry, dec_carry, act), act, outs
-        self._policy = jax.jit(nj.pure(mode_policy if deterministic else self.agent.model.policy), static_argnames=('mode',))
+        self._mode = jax.jit(nj.pure(mode_policy), static_argnames=('mode',))
+        self._policy = self._mode if deterministic else jax.jit(nj.pure(self.agent.model.policy), static_argnames=('mode',))
 
         def readout(carry, first):
             _, _, outs = self.agent.model.dec(carry[2], carry[1], first, training=False, single=True)
@@ -81,8 +113,9 @@ class DreamerPolicy:
         self.last_prediction = None
 
     def load(self, path):
-        with Path(path).open('rb') as stream:
-            self.agent.load(pickle.load(stream)['agent'])
+        """Load agent parameters from a checkpoint path or an already read payload (`read_checkpoint`)."""
+        payload = path if isinstance(path, dict) else read_checkpoint(path)
+        self.agent.load(payload['agent'])
         return self
 
     def initial(self, n):
@@ -116,15 +149,21 @@ class DreamerPolicy:
         return pred
 
     def leakage_check(self, obs):
-        """Flipping priv_trav must not change the actor carry/action (it is a decoder-only target)."""
-        if not self.head:
+        """Perturbing every priv_* key (uint8 255-x, bool not x, float x+1) must not change the actor carry or
+        action: they are decoder-only targets."""
+        priv = [k for k in self.obs_space if k.startswith('priv_')]
+        if not priv:
             return {}
         carry = self.initial(len(obs['is_first']))
         obs = {k: obs[k] for k in self.obs_space}
+
+        def perturb(x):
+            return 255-x if x.dtype == jnp.uint8 else (~x if x.dtype == jnp.bool_ else x+1)
+        changed = {k: perturb(obs[k]) for k in priv}
+        assert all(bool(jnp.any(changed[k] != obs[k])) for k in priv), 'perturbation left a priv key unchanged'
         _, a = self._policy(self.agent.params, carry, obs, mode='train', seed=jax.random.PRNGKey(991))
-        _, b = self._policy(self.agent.params, carry, {**obs, 'priv_trav': 255-obs['priv_trav']}, mode='train',
-                            seed=jax.random.PRNGKey(991))
+        _, b = self._policy(self.agent.params, carry, {**obs, **changed}, mode='train', seed=jax.random.PRNGKey(991))
         error = max(float(jnp.max(jnp.abs(x-y))) for x, y in zip(jax.tree.leaves(a[0]), jax.tree.leaves(b[0])))
         assert error == 0, error
-        return dict(privileged_actor_carry_max_error=error, encoder_keys=list(self.agent.model.enc.obs_space),
-                    decoder_keys=list(self.agent.model.dec.obs_space))
+        return dict(privileged_actor_carry_max_error=error, perturbed_keys=priv,
+                    encoder_keys=list(self.agent.model.enc.obs_space), decoder_keys=list(self.agent.model.dec.obs_space))

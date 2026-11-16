@@ -7,8 +7,14 @@ Contract (unchanged for the Dreamer agent):
   obs: bev uint8 [N,64,64,6] (ground, obstacle, support, unknown, corridor, age), state float32 [N,13]
        (3 route waypoints in the estimated robot frame /waypoint_scale, gates/8, measured velocity, previous
        action), priv_trav uint8 [N,64,64,1] (privileged decoder target), reward, is_first, is_last, is_terminal.
+       priv_route=true adds the decoder targets priv_route uint8 [N,64,64,1] (true corridor mask) and
+       priv_progress float32 [N,4] (progress, cos/sin heading error, clipped lateral).
   Action: (target radius, bearing, speed); 5 Hz policy step = timing.substeps tracker substeps.
   failure: 1 fall/unsupported, 2 collision, 3 off route / reversing, 5 stuck / timeout.
+  Odometry (odometry_inputs=true or localization.mode='odometry'): onboard dead reckoning with the error model
+  of config `odometry` (per-episode distance scale, heading random walk per metre); odometry_inputs fills state
+  slots 0-6 (zeroed by route_inputs=false) with distance/distance_unit, cos/sin heading since the race start,
+  IMU pitch/roll (REP-103: pitch > 0 nose down, roll > 0 left side up) and zeros.
 """
 import json
 from functools import partial
@@ -45,6 +51,13 @@ class TrailEnv:
         self.delays = [tracker.delay_steps(x, c) for x in c['dynamics']['delay_s']]
         self.window = int(np.ceil(c['task']['project_window']/self.bank.min_spacing))
         self.gate_count = int(self.bank.gates.shape[1])
+        if c['localization']['mode'] not in ('random_walk', 'odometry'):
+            raise ValueError(f"localization.mode must be random_walk or odometry, not {c['localization']['mode']}")
+        if c['odometry_inputs'] and c['route_inputs']:
+            raise ValueError('odometry_inputs fills the slots that route_inputs=false zeroes; set route_inputs=false')
+        # Odometry state exists only when used, so the default state, keys and random draws are unchanged.
+        self.odometry = bool(c['odometry_inputs'] or c['localization']['mode'] == 'odometry')
+        self.plane = grid(*c['robot']['envelope'], c['odometry']['plane_grid'])
 
     def tree_flatten(self):
         return (self.bank,), (self.n, json.dumps(self.cfg, sort_keys=True))
@@ -107,6 +120,56 @@ class TrailEnv:
         free = (ext[..., 2] < -t['priv_margin']) & (ext[..., 5] > t['priv_margin'])
         window = (1,)+tuple(t['priv_window'])
         return jax.lax.reduce_window(free.astype(jnp.int32), 1, jax.lax.min, window, (1, 1, 1), 'VALID') > 0
+
+    # ---------------------------------------------------------------- odometry (onboard dead reckoning)
+    ODOMETRY_KEYS = ('odo_scale', 'odo_dist', 'odo_err', 'odo_yaw0', 'odo_pos')
+
+    def odometry_advance(self, key, state, delta):
+        """Integrate a true planar displacement delta [N,2]: the heading error takes a random-walk step of variance
+        heading_walk_std^2 per metre, distance and dead-reckoned position grow by odo_scale * the displacement
+        (the position along the heading rotated by the error)."""
+        o = self.cfg['odometry']
+        moved = jnp.linalg.norm(delta, axis=-1)
+        err = state['odo_err']+jax.random.normal(key, moved.shape)*o['heading_walk_std']*jnp.sqrt(moved)
+        return {**state, 'odo_err': err, 'odo_dist': state['odo_dist']+state['odo_scale']*moved,
+                'odo_pos': state['odo_pos']+state['odo_scale'][:, None]*rotate(delta, err)}
+
+    def odometry_start(self, key, mids, s, pos, yaw, route_yaw):
+        """Odometry at an episode start at station s [N] (robot at pos, yaw; route yaw route_yaw there): as if
+        the robot had driven the route from task.route_start, with odometry_advance's error model integrated
+        over every route segment of that drive. Exactly zero at the race start."""
+        o, n, start = self.cfg['odometry'], self.n, self.cfg['task']['route_start']
+        k1, k2 = jax.random.split(key)
+        scale = 1+jax.random.normal(k1, (n,))*o['distance_scale_std']
+        arcs, points = self.bank.arcs[mids], self.bank.routes[mids][..., :2]
+        lo, hi = arcs[:, :-1], arcs[:, 1:]
+        covered = jnp.clip(jnp.minimum(hi, s[:, None])-jnp.maximum(lo, start), 0)
+        delta = (points[:, 1:]-points[:, :-1])*(covered/jnp.maximum(hi-lo, 1e-6))[..., None]
+        err = jnp.cumsum(jax.random.normal(k2, covered.shape)*o['heading_walk_std']*jnp.sqrt(covered), -1)
+        _, start_yaw, _ = self.bank.route_at(mids, jnp.full((n,), start, jnp.float32))
+        return dict(odo_scale=scale, odo_dist=scale*jnp.sum(covered, -1), odo_err=err[:, -1],
+                    odo_yaw0=start_yaw+yaw-route_yaw,
+                    odo_pos=pos+jnp.sum(scale[:, None, None]*rotate(delta, err)-delta, 1))
+
+    def attitude(self, state):
+        """True body (pitch, roll), REP-103, of the least-squares ground plane under the footprint."""
+        xy = state['pos'][:, None]+rotate(jnp.asarray(self.plane)[None], state['yaw'])
+        z = self.bank.sample(state['mids'], xy, 0, linear=True)
+        z = z-jnp.mean(z, -1, keepdims=True)
+        x, y = self.plane[:, 0], self.plane[:, 1]
+        b, c = z@x/np.sum(x*x), z@y/np.sum(y*y)      # forward / leftward slope (grid symmetric about 0)
+        return -jnp.arctan(b), jnp.arcsin(c/jnp.sqrt(1+b*b+c*c))
+
+    def odometry_reading(self, key, state):
+        """odometry_inputs vector [N, 2*len(task.waypoints)+1]: distance/distance_unit, cos and sin of the heading
+        change since the race start, IMU pitch and roll (truth + imu_std noise), zeros."""
+        o = self.cfg['odometry']
+        heading = state['yaw']+state['odo_err']-state['odo_yaw0']
+        pitch, roll = self.attitude(state)
+        imu = jax.random.normal(key, (self.n, 2))*o['imu_std']
+        vec = jnp.stack([state['odo_dist']/o['distance_unit'], jnp.cos(heading), jnp.sin(heading),
+                         pitch+imu[:, 0], roll+imu[:, 1]], -1)
+        return jnp.pad(vec, ((0, 0), (0, 2*len(self.cfg['task']['waypoints'])+1-vec.shape[1])))
 
     # ---------------------------------------------------------------- episodes
     def start_station(self, key, mids):
@@ -185,6 +248,8 @@ class TrailEnv:
             obs_queue=jnp.zeros((n, c['memory']['observation_delay']+1, image, image, 6), jnp.uint8),
             first=jnp.ones(n, bool), done=never, arrived=never, failure=zeros, reward=jnp.zeros(n),
             restart=jnp.full((n, 2), jnp.nan))
+        if self.odometry:
+            state.update(self.odometry_start(k[8], mids, s, pos, state['yaw'], yaw))
         if not observe:
             return state
         state, obs, extra = self._observe(state)
@@ -195,6 +260,7 @@ class TrailEnv:
         c, t, r = self.cfg, self.cfg['task'], self.cfg['reward']
         n, mids, dt = self.n, state['mids'], control_dt(c)
         resetting = state['done']
+        before = state['pos']
         key, slipkey, resetkey = jax.random.split(state['key'], 3)
         action = jnp.clip(action, -1, 1)
         local, speed = action_target(action, c)
@@ -237,6 +303,10 @@ class TrailEnv:
                  'reward': reward, 'done': (failure > 0) | arrived, 'arrived': arrived, 'failure': failure,
                  'ep_return': state['ep_return']+reward,
                  'distance': state['distance']+jnp.linalg.norm(pos-state['pos'], axis=-1)}
+        if self.odometry:
+            # A resetting slot's motion this step is discarded with the slot, so the odometry ignores it.
+            state = self.odometry_advance(jax.random.fold_in(slipkey, 1), state,
+                                          jnp.where(resetting[:, None], 0., pos-before))
 
         def reset_some(current):
             # Slots with a finite `restart` (assist) restart there and keep their obstacles.
@@ -247,6 +317,13 @@ class TrailEnv:
                                jax.random.uniform(k2, (n,), minval=-t['start_lateral'], maxval=t['start_lateral']))
             fresh = self._reset(k3, mids, start, offset, observe=False)
             fresh['obstacles'] = jnp.where(restart[:, None, None], current['obstacles'], fresh['obstacles'])
+            if self.odometry:
+                # An assist restart continues the odometry, which also tracks the assist displacement; with
+                # dead-reckoning localisation the estimated station (projection hint) continues as well.
+                moved = self.odometry_advance(jax.random.fold_in(resetkey, 1), current, fresh['pos']-before)
+                kept = self.ODOMETRY_KEYS+(('est_s',) if c['localization']['mode'] == 'odometry' else ())
+                for k in kept:
+                    fresh[k] = jnp.where(restart.reshape((n,)+(1,)*(fresh[k].ndim-1)), moved[k], fresh[k])
             pick = lambda a, b: jnp.where(resetting.reshape((n,)+(1,)*(a.ndim-1)), b, a)
             return {k: current[k] if k == 'key' else pick(current[k], fresh[k]) for k in current}
         state = jax.lax.cond(jnp.any(resetting), reset_some, lambda x: x, state)
@@ -261,6 +338,10 @@ class TrailEnv:
         drift = (1-loc['reversion'])*state['drift']+jax.random.normal(driftkey, (n, 3))*jnp.array(
             [loc['position_walk_std'], loc['position_walk_std'], loc['yaw_walk_std']])
         estpos, estyaw = state['pos']+drift[:, :2], state['yaw']+drift[:, 2]
+        if loc['mode'] == 'odometry':
+            # Dead reckoning from the race start replaces the random walk; drift records the estimate error.
+            estpos, estyaw = state['odo_pos'], state['yaw']+state['odo_err']
+            drift = jnp.concatenate([estpos-state['pos'], state['odo_err'][:, None]], -1)
         est_s, _ = self.bank.project(mids, estpos, state['est_s'], self.window)
         measured, keep, seen = sensor.frame(self, state, framekey)
         # World-aligned rolling memory keyed by the ESTIMATED pose; integer-cell shifts only.
@@ -291,6 +372,8 @@ class TrailEnv:
                      waypoints=rotate(route[..., :2]-estpos[:, None], -estyaw)/t['waypoint_scale'],
                      progress=state['gates']/self.gate_count,
                      velocity=state['vel']+jax.random.normal(speedkey, (n, 3))*c['sensor']['velocity_std'])
+        if c['odometry_inputs']:
+            parts['odometry'] = self.odometry_reading(jax.random.fold_in(speedkey, 1), state)
         trav = self.priv_trav(state)
         obs, queue = self.assemble(state, parts, trav)
         state.update(memory=memory, age=age, mempos=origin, obs_queue=queue, drift=drift, est_s=est_s)
@@ -301,13 +384,22 @@ class TrailEnv:
         extra = dict(occluded=~seen, clean_trav=trav, route_mask=self.bank.sample(mids, body, 3, linear=True) < 0,
                      progress=true_s/self.bank.arcs[mids, self.bank.lengths[mids]-1],
                      heading_error=wrap(route_yaw-state['yaw']), lateral=lateral)
+        if c['priv_route']:
+            # Privileged decoder targets from the true route (the encoder never sees priv_* keys).
+            limit = t['priv_lateral_clip']
+            obs = {**obs, 'priv_route': (extra['route_mask'][..., None]*255).astype(jnp.uint8),
+                   'priv_progress': jnp.stack([extra['progress'], jnp.cos(extra['heading_error']),
+                                               jnp.sin(extra['heading_error']),
+                                               jnp.clip(lateral/t['priv_lateral_scale'], -limit, limit)],
+                                              -1).astype(jnp.float32)}
         return state, obs, extra
 
     def assemble(self, state, parts, trav):
         """Policy observation from the simulator's measurements. Input variants belong here only.
 
         route_inputs=false removes everything that needs a map-frame pose (corridor channel, waypoints,
-        gate progress) by zeroing it; shapes are unchanged. Returns (obs, new observation-delay queue)."""
+        gate progress) by zeroing it; shapes are unchanged. odometry_inputs=true then puts the onboard
+        odometry reading into the zeroed waypoint/progress slots. Returns (obs, new observation-delay queue)."""
         c, n = self.cfg, self.n
         if not c['route_inputs']:
             parts = {**parts, 'corridor': jnp.zeros_like(parts['corridor']),
@@ -317,6 +409,9 @@ class TrailEnv:
         queue = jnp.concatenate([image[:, None], state['obs_queue'][:, :-1]], 1)
         vec = jnp.concatenate([parts['waypoints'].reshape(n, -1), parts['progress'][:, None], parts['velocity'],
                                state['prev']], -1).astype(jnp.float32)
+        if c['odometry_inputs']:
+            odometry = parts['odometry'].astype(jnp.float32)
+            vec = jnp.concatenate([odometry, vec[:, odometry.shape[1]:]], -1)
         return dict(bev=jnp.where(state['first'][:, None, None, None], image, queue[:, -1]), state=vec,
                     priv_trav=(trav[..., None]*255).astype(jnp.uint8), reward=state['reward'],
                     is_first=state['first'], is_last=state['done'],

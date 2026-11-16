@@ -1,0 +1,2 @@
+{"files": ["audit_20261116/nav4_dev/c3_dreamer_mode_s914901.json", "audit_20261116/train_dev/s2_final.json"], "rows": [72, 72], "differing_rows": [], "summary_equal": true, "loop_steps": [286, 286], "leakage": [{"privileged_actor_carry_max_error": 0.0, "encoder_keys": ["bev", "state"], "decoder_keys": ["bev", "state", "priv_trav"]}, {"privileged_actor_carry_max_error": 0.0, "perturbed_keys": ["priv_trav"], "encoder_keys": ["bev", "state"], "decoder_keys": ["bev", "state", "priv_trav"]}], "checkpoint_sha256_equal": true}
+IDENTICAL

@@ -1,0 +1,2 @@
+01430bd9d6bf97b13ccecc0a4199ffaeb972af86ddc9cd3d34020454aabefd3c  data/trail_a/manifest.json
+9e27c6937eb1b33b770bbd93c825cb1820e179a93083ea348605b35b7706953e  data/trail_a/forward/map.npz
