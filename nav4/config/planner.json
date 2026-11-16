@@ -1,0 +1,14 @@
+{
+  "candidates": 15, "max_offset": 0.84, "lookahead": 1.2, "path_length": 5.0,
+  "horizon_s": 3.0, "speed": 0.5, "slow_speed": 0.28, "brake_speed": 0.12,
+  "obstacle_height": 0.2, "nearby_x": [0.1, 4.0], "nearby_y": 1.5,
+  "footprint_grid": [7, 5], "footprint_margin": 0.04,
+  "prediction_delay_s": 0.15, "prediction_gain": 1.0,
+  "weights": {"risk": 5000.0, "border": 3000.0, "unknown": 0.02, "offset": 1.0},
+  "brake_threshold": 0.02,
+  "filter": {"horizon_s": 0.8, "margin": 0.08, "footprint_grid": [7, 5],
+             "path_fractions": [0.15, 0.3, 0.5, 0.7, 1.0],
+             "assess_x": [-0.515, -0.25, 0.0, 0.25, 0.515], "assess_y": [-0.29, 0.0, 0.29],
+             "body": [0.54, 0.32], "obstacle_height": 0.21,
+             "max_risk": 0.01, "max_unknown": 0.65, "max_corridor": 0.15, "hold_steps": 5}
+}
