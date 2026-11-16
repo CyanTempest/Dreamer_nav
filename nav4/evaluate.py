@@ -6,7 +6,9 @@
 Slot i drives map i % count from the route start (task.route_start) with the reset drawn from --seed only,
 so methods with the same seed are paired at reset. One traverse per slot. Without --assist a failure ends
 the traverse. With --assist a failure is followed by a restart at the nearest feasible pose at or after the
-failure station + assist.advance (env.restart_pose) and the traverse continues; strict completion = no assist,
+failure station + assist.advance (env.restart_pose) and the traverse continues. If that station reaches
+final - assist.end_clearance, the forward carry completes the traverse with one assist instead of restarting
+at the end-clearance clamp; strict completion = no assist,
 assisted completion = at most assist.limit (3, competition rule) assists per traverse.
 
 Checkpoints written by nav4.train_dreamer carry their env overrides and observation keys (payload['nav4']);
@@ -128,6 +130,12 @@ def drive(env, state, obs, act, guard=None, assist=False, max_assists=None, max_
             r['failures'].append([int(h['failure'][i]), float(h['s'][i]), *map(float, h['pos'][i])])
             if assist and (max_assists is None or r['assists'] < max_assists):
                 r['assists'] += 1
+                # Assistance carries the robot forward, including over the finish. Restarting here would
+                # clamp to final - end_clearance and could repeat the same failure indefinitely.
+                if h['s'][i]+env.cfg['assist']['advance'] >= final[i]-env.cfg['assist']['end_clearance']:
+                    r['arrived'], running[i] = True, False
+                    r['final_station'] = float(final[i])
+                    continue
                 restart[i] = h['s'][i]+env.cfg['assist']['advance']
                 tracks[i].append([np.nan, np.nan])
             else:
