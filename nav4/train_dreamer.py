@@ -9,7 +9,8 @@ reports no items until every slot has filled one sequence, the official elements
 driver and runtime state, an agent wrapper (batched policy, update counter) and a JSONL Logger.
 
 --logdir gets config.json, metrics.jsonl, ckpt/ (official checkpoints), replay/ (chunks) and latest.pkl
-(agent + payload['nav4']: env overrides and observation keys, read by nav4.evaluate).
+(agent + payload['nav4']: env overrides and observation keys, read by nav4.evaluate); best.pkl (same format)
+and best.json hold the weights of the best periodic evaluation (fewest assists/100 m).
 --seconds: training wall time counted from the first optimizer update, summed over resumes.
 --resume continues logdir from its latest official checkpoint with its saved config.
 GPU guard: refuses to start (exit 3) unless nvidia-smi reports min_free_gpu_mib available (free + this process's
@@ -364,6 +365,14 @@ def main(argv=None):
         print('EVAL', json.dumps(clean(dict(index=context.evals, updates=context.updates, **{
             k: summary.get(k) for k in ('strict_completions', 'completions_within_limit', 'assists_per_100m',
                                         'mean_final_station')}))), flush=True)
+        # Keep the best evaluated weights (fewest assists per 100 m, then furthest mean final station).
+        score = [summary['assists_per_100m'], -summary['mean_final_station']]
+        best = logdir/'best.json'
+        if not best.exists() or score < json.loads(best.read_text())['score']:
+            write_latest('best.pkl')
+            write_atomic(best, json.dumps(clean(dict(
+                score=score, index=context.evals, updates=context.updates, train_seconds=train_seconds(),
+                summary={k: v for k, v in summary.items() if k != 'per_map'}))).encode())
         context.evals += 1
         while context.next_eval <= train_seconds():
             context.next_eval += e['minutes']*60.
@@ -428,13 +437,13 @@ def main(argv=None):
             context.evals, context.next_eval = data['evals'], data['next_eval']
             context.episodes_total = data['episodes_total']
 
-    def write_latest():
+    def write_latest(name='latest.pkl'):
         payload = dict(agent=policy.agent.save(), nav4=dict(
             format='nav4.train_dreamer/1', env_overrides=cfg['env'], obs_space=spec(policy.obs_space),
             manifest=cfg['manifest'], maps=list(bank.names), seed=seed, train_config=cfg),
             steps=int(logger.step), updates=context.updates, train_seconds=train_seconds(), envs=n,
             official_checkpoint=str(context.cp.latest()))
-        write_atomic(logdir/'latest.pkl', pickle.dumps(payload, pickle.HIGHEST_PROTOCOL))
+        write_atomic(logdir/name, pickle.dumps(payload, pickle.HIGHEST_PROTOCOL))
 
     original_cp, original_ratio = elements.Checkpoint, elements.when.Ratio
 
