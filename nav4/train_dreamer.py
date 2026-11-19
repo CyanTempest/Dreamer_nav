@@ -15,7 +15,7 @@ and best.json hold the weights of the best periodic evaluation (fewest assists/1
 --resume continues logdir from its latest official checkpoint with its saved config.
 GPU guard: refuses to start (exit 3) unless nvidia-smi reports min_free_gpu_mib available (free + this process's
 own use); checked again before every checkpoint (if it fails: save, then stop with exit 3). XLA may allocate at
-most min_free_gpu_mib. --allow-cpu skips the guard and forces JAX_PLATFORMS=cpu (smoke tests only).
+most min_free_gpu_mib unless xla_memory_fraction sets a separate allocator limit. --allow-cpu skips the guard and forces JAX_PLATFORMS=cpu (smoke tests only).
 Seeds: env resets PRNGKey(seed); agent init, train/policy seeds and replay sampler from seed; evaluation resets
 from eval.seed with the nav4.evaluate policy key. Thread timing of the replay prefetch makes runs not bit-exact.
 """
@@ -113,6 +113,80 @@ def sha256(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
+class BatchedReplayWriter:
+    """Write one synchronous driver tick to uncompressed upstream replay chunks.
+
+    Per-worker Chunk objects keep their native UUIDs, successor links and save
+    format. Their arrays are views of a shared (worker, time, ...) allocation.
+    A checkpoint closes partial chunks, so the next add opens a new slab.
+    """
+
+    def __init__(self, replay):
+        if replay.compress or replay.mmap_directory:
+            raise ValueError('batched insertion requires uncompressed in-memory replay')
+        self.replay = replay
+        self.arrays = {}
+        self.chunks = []
+        self.index = 0
+
+    def _begin(self, batch):
+        import numpy as np
+        from embodied.core.chunk import Chunk
+        replay = self.replay
+        count = len(next(iter(batch.values())))
+        chunks = []
+        for worker in range(count):
+            if worker not in replay.current:
+                chunk = Chunk(replay.chunksize)
+                replay.chunks[chunk.uuid] = chunk
+                replay.refs[chunk.uuid] = 1
+                replay.current[worker] = (chunk.uuid, 0)
+            uuid, index = replay.current[worker]
+            chunk = replay.chunks[uuid]
+            if index or chunk.length:
+                raise ValueError('expected aligned empty chunks after checkpoint restore')
+            chunks.append(chunk)
+        self.arrays = {k: np.empty((count, replay.chunksize, *v.shape[1:]), v.dtype)
+                       for k, v in batch.items()}
+        ids = np.empty((count, replay.chunksize, 20), np.uint8)
+        ids[:, :, 16:] = np.arange(replay.chunksize, dtype='>u4').view(np.uint8).reshape(-1, 4)
+        for worker, chunk in enumerate(chunks):
+            ids[worker, :, :16] = np.frombuffer(bytes(chunk.uuid), np.uint8)
+            chunk.data = {k: v[worker] for k, v in self.arrays.items()}
+            chunk.data['stepid'] = ids[worker]
+        self.chunks = chunks
+        self.index = 0
+
+    def add(self, batch):
+        replay = self.replay
+        batch = {k: v for k, v in batch.items() if not k.startswith('log/')}
+        with replay.rwlock.reading, replay.refs_lock:
+            if not self.chunks or replay.current[0][0] != self.chunks[0].uuid:
+                self._begin(batch)
+            index = self.index
+            for key, value in batch.items():
+                self.arrays[key][:, index] = value
+            for worker, chunk in enumerate(self.chunks):
+                chunk.length = index + 1
+                pair = (chunk.uuid, index)
+                stream = replay.streams[worker]
+                stream.append(pair)
+                replay.refs[chunk.uuid] += 1
+                if chunk.length == chunk.size:
+                    replay._complete(chunk, worker)
+                else:
+                    replay.current[worker] = (chunk.uuid, chunk.length)
+                if len(stream) >= replay.length:
+                    replay.metrics['inserts'] += 1
+                    oldest = stream.popleft()
+                    replay._insert(*oldest)
+                    if replay.online and replay.lengths[worker] % replay.length == 0:
+                        replay.queue.append(oldest)
+                if replay.online:
+                    replay.lengths[worker] += 1
+            self.index += 1
+
+
 class Episodes:
     """Finished training episodes: count, return, failure codes (0 = arrived), progress at termination."""
 
@@ -145,6 +219,7 @@ def main(argv=None):
     p.add_argument('--seconds', type=float, required=True, help='training budget (s) from the first update, all resumes')
     p.add_argument('--envs', type=int, help='parallel env slots (default: config envs)')
     p.add_argument('--resume', action='store_true', help='continue --logdir from its latest official checkpoint')
+    p.add_argument('--init-checkpoint', help='start a fresh replay and run clock from matching nav4 agent weights')
     p.add_argument('--allow-cpu', action='store_true', help='skip the GPU guard and run on CPU (smoke tests only)')
     p.add_argument('--set', nargs='*', metavar='KEY=JSON', help='train config overrides, e.g. eval.traverses=1')
     p.add_argument('--env', nargs='*', metavar='KEY=JSON', help='extra env.json overrides on top of config env')
@@ -166,8 +241,9 @@ def main(argv=None):
             set_key(cfg, key, value)
         cfg['env'] = {**cfg['env'], **overrides(a.env)}
         cfg['envs'] = a.envs or cfg['envs']
-    assert (cfg['model'], cfg['batch_size'], cfg['batch_length']) == ('size12m', 16, 64), \
-        'nav4.policy fixes size12m with batch 16 x 64'
+    if a.resume and a.init_checkpoint:
+        p.error('--resume and --init-checkpoint are mutually exclusive')
+    warmup_steps = max(cfg['warmup_steps'], cfg['batch_length'] + 1)
     n, seed = cfg['envs'], cfg['seed']
     logdir.mkdir(parents=True, exist_ok=True)
     log = logdir/'metrics.jsonl'
@@ -176,6 +252,8 @@ def main(argv=None):
         with log.open('a') as f:
             f.write(json.dumps(clean(row), allow_nan=False)+'\n')
 
+    fast_xla = cfg.get('xla_default_tuning', False) and not a.allow_cpu
+    prealloc = cfg.get('xla_preallocate', False) and not a.allow_cpu
     # GPU guard and runtime flags, before JAX initialises.
     if a.allow_cpu:
         os.environ['JAX_PLATFORMS'] = 'cpu'
@@ -186,10 +264,20 @@ def main(argv=None):
             append(dict(event='gpu_guard_refused', unix=time.time(), gpu=gpu, min_free_gpu_mib=cfg['min_free_gpu_mib']))
             print(f"GPU guard: {gpu} < min_free_gpu_mib={cfg['min_free_gpu_mib']}; not starting", file=sys.stderr)
             return EXIT_GPU
-        os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
-        os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = f"{min(1., cfg['min_free_gpu_mib']/gpu['total_mib']):.4f}"
-    os.environ['XLA_FLAGS'] = deterministic_xla(os.environ.get('XLA_FLAGS', ''))
-    os.environ['TF_CUDNN_DETERMINISTIC'] = '1'
+        os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = str(prealloc).lower()
+        fraction = cfg.get('xla_memory_fraction')
+        if fraction is None:
+            fraction = min(1., cfg['min_free_gpu_mib']/gpu['total_mib'])
+        if not 0 < fraction <= 1:
+            p.error('xla_memory_fraction must be in (0, 1]')
+        os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = f'{fraction:.4f}'
+    if fast_xla:
+        os.environ['XLA_FLAGS'] = ' '.join(f for f in os.environ.get('XLA_FLAGS', '').split()
+                                           if f.split('=', 1)[0] not in DETERMINISTIC_XLA)
+        os.environ.pop('TF_CUDNN_DETERMINISTIC', None)
+    else:
+        os.environ['XLA_FLAGS'] = deterministic_xla(os.environ.get('XLA_FLAGS', ''))
+        os.environ['TF_CUDNN_DETERMINISTIC'] = '1'
     runtime = {k: os.environ.get(k) for k in ('JAX_PLATFORMS', 'XLA_FLAGS', 'XLA_PYTHON_CLIENT_PREALLOCATE',
                                               'XLA_PYTHON_CLIENT_MEM_FRACTION', 'TF_CUDNN_DETERMINISTIC')}
     import jax
@@ -220,8 +308,18 @@ def main(argv=None):
         return 2
     env = TrailEnv(bank, n, cfg['env'])
     initial = env.reset(jax.random.PRNGKey(seed))
-    policy = DreamerPolicy(seed, logdir, obs=initial[1], jax_overrides=dict(
-        autotune=1, deterministic=True, platform='cpu' if a.allow_cpu else 'cuda'))
+    policy = DreamerPolicy(seed, logdir, obs=initial[1], model=cfg['model'], batch_size=cfg['batch_size'],
+                          batch_length=cfg['batch_length'], jax_overrides=dict(
+        autotune=4 if fast_xla else 1, deterministic=not fast_xla, prealloc=prealloc, platform='cpu' if a.allow_cpu else 'cuda'))
+    if a.init_checkpoint:
+        from .policy import read_checkpoint
+        payload = read_checkpoint(a.init_checkpoint)
+        meta = payload.get('nav4', {})
+        if (meta.get('obs_space') != spec(policy.obs_space) or
+                meta.get('train_config', {}).get('model', 'size12m') != cfg['model']):
+            p.error('initial weights must match the configured model and observation space')
+        policy.agent.load(payload['agent'])
+        del payload
     decoder_keys = list(policy.agent.model.dec.obs_space)
     e = cfg['eval']
     eval_env = TrailEnv(bank, e['traverses'], cfg['env'])
@@ -255,10 +353,22 @@ def main(argv=None):
                 gpu=gpu, runtime=runtime, backend=jax.default_backend(), argv=sys.argv, map_sha256=map_sha256,
                 map_changed_since_start=saved_maps != map_sha256))
 
+    profiling = cfg.get('profile_steps', False)
+    phase = Counter()
+    sample_work = [0.]
+    previous_end = None
+
     replay = embodied.Replay(length=cfg['batch_length']+1, capacity=cfg['replay']['capacity'],
                              directory=str(logdir/'replay'), chunksize=cfg['replay']['chunksize'],
                              online=cfg['replay']['online'], seed=seed, save_wait=True,
                              compress=cfg['replay']['compress'])
+
+    batch_writer = BatchedReplayWriter(replay) if cfg['replay'].get('batched', False) else None
+
+    def check_losses(metrics):
+        for key, value in metrics.items():
+            if (key.startswith('loss/') or key in ('opt/loss', 'opt/grad_norm')) and not np.isfinite(value).all():
+                raise FloatingPointError(f'non-finite Dreamer metric {key}')
 
     class Agent:
         def __getattr__(self, key):
@@ -278,10 +388,13 @@ def main(argv=None):
         def train(self, carry, batch):
             if context.pending_carry is not None:
                 carry, context.pending_carry = context.pending_carry, None
+            if profiling:
+                start = time.perf_counter()
             carry, outs, metrics = policy.agent.train(carry, batch)
-            for key, value in metrics.items():
-                if (key.startswith('loss/') or key in ('opt/loss', 'opt/grad_norm')) and not np.isfinite(value).all():
-                    raise FloatingPointError(f'non-finite Dreamer metric {key}')
+            if profiling:
+                jax.block_until_ready((carry, policy.agent.params))
+                phase['train_update'] += time.perf_counter() - start
+            check_losses(metrics)
             context.train_carry = carry
             context.updates += 1
             if context.begin is None:
@@ -289,6 +402,20 @@ def main(argv=None):
                 append(dict(event='training_clock_started', unix=time.time(), steps=int(logger.step),
                             updates=context.updates, train_seconds_before=context.elapsed))
             return carry, outs, metrics
+
+        def stream(self, source):
+            upstream = policy.agent.stream(source)
+            if not profiling:
+                return upstream
+            def timed():
+                iterator = iter(upstream)
+                while True:
+                    start = time.perf_counter()
+                    batch = next(iterator)
+                    jax.block_until_ready(batch)
+                    phase['dataset_wait'] += time.perf_counter() - start
+                    yield batch
+            return timed()
 
         def save(self):
             return policy.agent.save()
@@ -298,10 +425,17 @@ def main(argv=None):
 
     class Replay:
         def __len__(self):
-            return len(replay) if int(logger.step) >= cfg['warmup_steps']*n else 0
+            return len(replay) if int(logger.step) >= warmup_steps*n else 0
 
         def __getattr__(self, key):
             return getattr(replay, key)
+
+        def update(self, data):
+            if profiling:
+                start = time.perf_counter()
+            replay.update(data)
+            if profiling:
+                phase['replay_update'] += time.perf_counter() - start
 
         def save(self):
             return replay.save(detailed=True)
@@ -325,6 +459,10 @@ def main(argv=None):
                        episodes_total=context.episodes_total,
                        decoder_losses={k: self.values.get(f'train/loss/{k}') for k in decoder_keys},
                        replay_items=len(replay), metrics=self.values)
+            if prealloc:
+                stats = jax.devices()[0].memory_stats() or {}
+                row['allocator'] = {k: stats[k] for k in ('bytes_in_use', 'peak_bytes_in_use', 'bytes_limit',
+                                                         'pool_bytes', 'peak_pool_bytes') if k in stats}
             append(row)
             print(json.dumps(clean({k: v for k, v in row.items() if k != 'metrics'})), flush=True)
             self.values = {}
@@ -384,7 +522,8 @@ def main(argv=None):
             context.driver = self
 
         def on_step(self, fn):
-            self.callbacks.append(fn)
+            if batch_writer is None or fn != replay.add:
+                self.callbacks.append(fn)
 
         def reset(self, init_policy=None):
             if not self.restored or self.carry is None:
@@ -396,23 +535,64 @@ def main(argv=None):
                 raise SegmentComplete()
             if context.begin is not None and train_seconds() >= context.next_eval:
                 run_eval()
+            nonlocal previous_end
+            if profiling:
+                begin = time.perf_counter()
+                steady = context.begin is not None
+                gap = begin - previous_end if previous_end is not None else 0.
+                phase.clear()
+                sample_start = sample_work[0]
             stepped = self.acts is not None
             if stepped:
                 self.state, self.obs, self.extra = env.step(self.state, self.acts)
+            if profiling:
+                jax.block_until_ready((self.state, self.obs, self.extra))
+                mark = time.perf_counter()
+                phase['env'] = mark - begin
             self.carry, acts, outs = fn(self.carry, {k: self.obs[k] for k in policy.obs_space})
             self.acts = acts['action']
+            if profiling:
+                jax.block_until_ready((self.carry, acts, outs))
+                now = time.perf_counter()
+                phase['policy'] = now - mark
+                mark = now
             tran, ep = jax.device_get(({**{k: self.obs[k] for k in policy.obs_space}, **acts, **outs}, dict(
                 done=self.obs['is_last'], ep_return=self.state['ep_return'], failure=self.state['failure'],
                 steps=self.state['steps'], progress=self.extra['progress'])))
+            if profiling:
+                phase['device_get'] = time.perf_counter() - mark
             if stepped:
                 episodes.add(ep)
                 context.episodes_total += int(ep['done'].sum())
+            if batch_writer is not None:
+                if profiling:
+                    mark = time.perf_counter()
+                batch_writer.add(tran)
+                if profiling:
+                    phase['replay_add'] += time.perf_counter() - mark
             for i in range(n):
                 # Copies for worker 0: the official logfn keeps its images for a whole episode, and row views
                 # would keep every slot's batch alive with them.
                 row = {k: (np.array(v[i]) if i == 0 else v[i]) for k, v in tran.items()}
-                for callback in self.callbacks:
+                if not profiling:
+                    for callback in self.callbacks:
+                        callback(row, i)
+                    continue
+                for idx, callback in enumerate(self.callbacks):
+                    mark = time.perf_counter()
                     callback(row, i)
+                    if callback == replay.add:
+                        phase['replay_add'] += time.perf_counter() - mark
+                    elif idx == (2 if batch_writer is not None else 3):
+                        phase['episode_log'] += time.perf_counter() - mark
+            if profiling:
+                end = time.perf_counter()
+                phase['driver_other'] = end - begin - sum(phase.values())
+                phase['outer_loop_log'] = gap
+                if steady:
+                    append(dict(event='profile', updates=context.updates, steps=int(logger.step),
+                                seconds=dict(phase), background_sample=sample_work[0]-sample_start))
+                previous_end = time.perf_counter()
 
         def save(self):
             return dict(tree=jax.device_get((self.state, self.obs, self.extra, self.carry, self.acts)), envs=n)
@@ -473,8 +653,12 @@ def main(argv=None):
 
     def stream(buffer, mode):
         while True:
+            if profiling:
+                start = time.perf_counter()
             batch = buffer.sample(cfg['batch_size'], mode)
             batch['consec'] = np.zeros(batch['is_first'].shape, np.int32)
+            if profiling:
+                sample_work[0] += time.perf_counter() - start
             yield batch
 
     args = SimpleNamespace(
@@ -493,7 +677,17 @@ def main(argv=None):
         finished = True
     finally:
         if finished and context.cp is not None:
-            if context.saved_step != int(logger.step):
+            if e.get('at_end', False) and not context.stop and context.begin is not None:
+                context.elapsed = train_seconds()
+                context.begin = None
+                # The upstream agent returns metrics one update late.
+                last = jax.device_get(policy.agent.pending_mets or {})
+                check_losses(last)
+                append(dict(event='last_update', updates=context.updates, train_seconds=train_seconds(),
+                            metrics={k: float(v) for k, v in last.items()
+                                     if k.startswith('loss/') or k in ('opt/loss', 'opt/grad_norm')}))
+                run_eval()
+            if context.saved_step != int(logger.step) and not cfg.get('benchmark_only', False):
                 context.cp.save()
             logger.close()
             append(dict(event='stop', steps=int(logger.step), updates=context.updates, train_seconds=train_seconds(),

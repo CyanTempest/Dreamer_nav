@@ -5,6 +5,7 @@ deterministic=True acts with pol(...).pred() = tanh(mean) instead of a sample; R
 The observation space is the legacy one (bev, state, priv_trav when head) unless built from an env observation
 dict or a saved spec (`spaces`); nav4.train_dreamer checkpoints carry that spec in payload['nav4']['obs_space'].
 """
+from functools import cached_property
 import os
 import pickle
 import sys
@@ -45,9 +46,14 @@ def read_checkpoint(path):
         return pickle.load(stream)
 
 
-def make_config(seed, logdir):
+def make_config(seed, logdir, model='size12m', batch_size=16, batch_length=64):
     cfg = yaml.YAML(typ='safe').load((ROOT/'dreamerv3/dreamerv3/configs.yaml').read_text())
-    config = elements.Config(cfg['defaults']).update(cfg['size12m'])
+    if model not in cfg or not model.startswith('size'):
+        raise ValueError(f'unknown Dreamer size {model!r}')
+    if any(type(x) is not int or x < 1 for x in (batch_size, batch_length)):
+        raise ValueError('batch_size and batch_length must be positive integers')
+    config = elements.Config(cfg['defaults']).update(cfg[model]).update(
+        batch_size=batch_size, batch_length=batch_length)
     return config.update(seed=seed, logdir=str(logdir), **{
         'replay.size': 1000000, 'replay.chunksize': 64, 'jax.prealloc': False, 'jax.platform': 'cuda',
         'agent.report': False})
@@ -55,10 +61,13 @@ def make_config(seed, logdir):
 
 class DreamerPolicy:
     def __init__(self, seed=0, logdir='checkpoints/dreamer', head=True, amnesic=False, jax_overrides=None,
-                 deterministic=False, obs=None, keys=None):
+                 deterministic=False, obs=None, keys=None, model='size12m', batch_size=16, batch_length=64):
         """obs/keys: build the observation space with `spaces(obs, keys)` (env observation dict or saved spec)
         instead of the legacy one; head is then whether it contains priv_trav."""
-        cfg = make_config(seed, logdir)
+        self.model = model
+        self.seed, self.logdir = seed, logdir
+        self.deterministic, self.jax_overrides = deterministic, jax_overrides
+        self.cfg = make_config(seed, logdir, model, batch_size, batch_length)
         if obs is None:
             obs_space = dict(bev=elements.Space(np.uint8, (64, 64, 6)), state=elements.Space(np.float32, (13,)),
                              reward=elements.Space(np.float32), is_first=elements.Space(bool),
@@ -68,22 +77,10 @@ class DreamerPolicy:
         else:
             obs_space = spaces(obs, keys)
             head = 'priv_trav' in obs_space
-        self.cfg, self.head, self.amnesic = cfg, head, amnesic
-        act_space = dict(action=elements.Space(np.float32, (3,), -1, 1))
-        jaxcfg = dict(cfg.jax)
-        # The batched driver creates JAX arrays and reads metrics on the host.
-        jaxcfg.update(precompile=False, profiler=False, transfer_guard=False)
-        if os.environ.get('NAV3_REPRO') == '1':
-            jaxcfg.update(autotune=1, deterministic=True)
-        if jax_overrides:
-            jaxcfg.update(jax_overrides)
-        self.agent = Agent(obs_space, act_space, elements.Config(
-            **cfg.agent, logdir=str(logdir), seed=seed, jax=jaxcfg, batch_size=16, batch_length=64,
-            replay_context=1, report_length=32, replica=0, replicas=1))
+        self.head, self.amnesic = head, amnesic
         self.obs_space = obs_space
         self.key = jax.random.PRNGKey(seed+1234)
         self.carry = None
-        self._initial = jax.jit(nj.pure(self.agent.model.init_policy), static_argnums=(1,))
 
         def mode_policy(carry, obs, mode='train'):
             # Agent.policy with act=pol(...).pred() instead of sample(); sample() is its last nj.seed() draw,
@@ -104,7 +101,6 @@ class DreamerPolicy:
                 outs.update(elements.tree.flatdict(dict(enc=enc_entry, dyn=dyn_entry, dec=dec_entry)))
             return (enc_carry, dyn_carry, dec_carry, act), act, outs
         self._mode = jax.jit(nj.pure(mode_policy), static_argnames=('mode',))
-        self._policy = self._mode if deterministic else jax.jit(nj.pure(self.agent.model.policy), static_argnames=('mode',))
 
         def readout(carry, first):
             _, _, outs = self.agent.model.dec(carry[2], carry[1], first, training=False, single=True)
@@ -112,9 +108,41 @@ class DreamerPolicy:
         self._decode = jax.jit(nj.pure(readout))
         self.last_prediction = None
 
+    @cached_property
+    def agent(self):
+        # evaluate constructs the wrapper before load() supplies the checkpoint shape.
+        cfg = self.cfg
+        act_space = dict(action=elements.Space(np.float32, (3,), -1, 1))
+        jaxcfg = dict(cfg.jax)
+        # The batched driver creates JAX arrays and reads metrics on the host.
+        jaxcfg.update(precompile=False, profiler=False, transfer_guard=False)
+        if os.environ.get('NAV3_REPRO') == '1':
+            jaxcfg.update(autotune=1, deterministic=True)
+        if self.jax_overrides:
+            jaxcfg.update(self.jax_overrides)
+        return Agent(self.obs_space, act_space, elements.Config(
+            **cfg.agent, logdir=str(self.logdir), seed=self.seed, jax=jaxcfg,
+            batch_size=cfg.batch_size, batch_length=cfg.batch_length, replay_context=1, report_length=32, replica=0, replicas=1))
+
+    @cached_property
+    def _initial(self):
+        return jax.jit(nj.pure(self.agent.model.init_policy), static_argnums=(1,))
+
+    @cached_property
+    def _policy(self):
+        return self._mode if self.deterministic else jax.jit(nj.pure(self.agent.model.policy), static_argnames=('mode',))
+
     def load(self, path):
         """Load agent parameters from a checkpoint path or an already read payload (`read_checkpoint`)."""
         payload = path if isinstance(path, dict) else read_checkpoint(path)
+        train = payload.get('nav4', {}).get('train_config', {})
+        shape = (train.get('model', 'size12m'), train.get('batch_size', 16), train.get('batch_length', 64))
+        if shape != (self.model, self.cfg.batch_size, self.cfg.batch_length):
+            self.model = shape[0]
+            self.cfg = make_config(self.seed, self.logdir, *shape)
+            for key in ('agent', '_initial', '_policy'):
+                self.__dict__.pop(key, None)
+            self.carry = None
         self.agent.load(payload['agent'])
         return self
 
