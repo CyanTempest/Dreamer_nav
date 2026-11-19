@@ -110,6 +110,8 @@ def run(args):
             return
         previous=pose_spec['station_m']
         next_tick=None
+        missing_imu_since=None
+        meta['imu_pauses']=[]
         reason='benchmark_end'
         while time.time()<args.end:
             now=time.monotonic()
@@ -129,8 +131,16 @@ def run(args):
                 continue
             imu=next((v for v in reversed(tuple(topics.imu)) if v[0]<=now and v[1]<=stamp),None)
             if imu is None or stamp-imu[1]>.1:
-                reason='imu_timeout'
-                break
+                if missing_imu_since is None:
+                    missing_imu_since=now
+                    meta['imu_pauses'].append(dict(mono=now,odom=stamp,action=[0,0,0]))
+                    commands.send(zero)
+                if now-missing_imu_since>=cfg['odom_timeout_s']:
+                    reason='imu_timeout'
+                    break
+                time.sleep(.005)
+                continue
+            missing_imu_since=None
             st=route.locate(pose,previous)
             if next_tick is None:
                 if not upright(st,cfg,initial=True):

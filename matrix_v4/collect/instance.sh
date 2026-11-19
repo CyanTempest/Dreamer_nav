@@ -49,13 +49,29 @@ for k in {1..80}; do
  sleep .1
 done
 [[ $(readlink /proc/"$holder"/ns/net) != $(readlink /proc/self/ns/net) ]]
+# Concurrent cold PSO initialization can trip UE's 60 s render fence on 2 vCPUs.
+# Serialize only the initial map/render warm-up; all physics and driving run concurrently.
+exec 8>"$c/renderer-start.lock"
+while ! flock -n 8; do
+ (( $(date +%s) < end )) || exit 4
+ sleep .5
+done
+ulimit -c 0
 setsid "${enter[@]}" runuser -u matrixv4 -- env -u DISPLAY bash -c '
  source /content/matrix-v4/graphics.env
  export SDL_AUDIODRIVER=dummy
  cd "$1"
- exec ./UeSim.sh /Game/Maps/CustomWorld -RenderOffScreen -unattended -nosound -NoVSync -ResX=64 -ResY=64 -windowed -stdout -FullStdOutLogOutput "-abslog=$2/ue.log" "-port=$((7777+$3))" "-JsEnvDebugPort=$((9201+$3))" "-ExecCmds=r.ShadowQuality 0,r.PostProcessAAQuality 0,r.DefaultFeature.AntiAliasing 0,r.BloomQuality 0,r.MotionBlurQuality 0,r.SSR.Quality 0,r.ViewDistanceScale 0.3,sg.PostProcessQuality 0"
- ' _ "$i" "$run" "$slot" >"$run/console.log" 2>&1 &
+ exec ./UeSim.sh /Game/Maps/CustomWorld -RenderOffScreen -unattended -nosound -NoVSync -ResX=64 -ResY=64 -windowed -stdout -FullStdOutLogOutput "-abslog=$2/ue.log" "-port=$((7777+$3))" "-JsEnvDebugPort=$((9201+$3))" "-ini:Engine:[SystemSettings]:g.TimeoutForBlockOnRenderFence=240000" "-ExecCmds=g.TimeoutForBlockOnRenderFence 240000,r.ShadowQuality 0,r.PostProcessAAQuality 0,r.DefaultFeature.AntiAliasing 0,r.BloomQuality 0,r.MotionBlurQuality 0,r.SSR.Quality 0,r.ViewDistanceScale 0.3,sg.PostProcessQuality 0"
+ ' _ "$i" "$run" "$slot" 8>&- >"$run/console.log" 2>&1 &
 ue=$!
+for k in {1..360}; do
+ grep -aq 'spawn settings source=config' "$run/console.log" && break
+ kill -0 "$ue" || exit 3
+ (( $(date +%s) < end )) || exit 4
+ sleep .5
+done
+flock -u 8
+exec 8>&-
 for k in {1..480}; do
  grep -aq 'native runtime ready' "$run/console.log" && break
  kill -0 "$ue" || exit 3

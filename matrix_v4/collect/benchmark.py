@@ -2,6 +2,7 @@
 import argparse
 import concurrent.futures
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -100,7 +101,7 @@ def main():
     batch.mkdir(parents=True)
     (c/'data').mkdir(exist_ok=True)
     start=time.time()
-    end=int(start+a.seconds)
+    end=math.ceil(start+a.seconds)
     spec=dict(n=a.n,gpu=gpu,start=start,end=end)
     (batch/'tier.json').write_text(json.dumps(spec))
     print(batch,flush=True)

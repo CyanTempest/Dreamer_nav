@@ -102,6 +102,14 @@ class Tests(unittest.TestCase):
             acts=[d.command(dict(elapsed_sim_s=10),RouteState(0,0,.5,0,0,.1,False)) for d in drivers]
             np.testing.assert_equal(*acts)
 
+    def test_pursuit_curvature(self):
+        c=dict(CFG,gaussian_fraction=0,burst_fraction=0)
+        driver=Pursuit(c,np.random.default_rng(5))
+        st=RouteState(2,0,.5,0,0,.1,False,.9)
+        action=driver.command(dict(elapsed_sim_s=2),st)
+        expected=2*action[0]*c['forward_scale_mps']*np.sin(.1)/.9
+        self.assertAlmostEqual(action[2]*c['yaw_scale_radps'],expected)
+
     def test_shard(self):
         with tempfile.TemporaryDirectory() as d:
             ep=Episode(d,'abc',dict(seed=1))

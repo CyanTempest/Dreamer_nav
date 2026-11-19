@@ -24,6 +24,7 @@ class RouteState:
     pitch: float
     error: float
     outside: bool
+    target_distance: float = 0.60
 
 
 class Route:
@@ -57,7 +58,7 @@ class Route:
         heading = math.atan2(goal[1]-p[1],goal[0]-p[0])
         return RouteState(along, lateral, pose[2]-height, roll,pitch,
                           math.remainder(heading-yaw, 2*math.pi),
-                          along<self.bounds[0] or along>=self.bounds[1])
+                          along<self.bounds[0] or along>=self.bounds[1],float(np.linalg.norm(goal-p)))
 
 
 def upright(st, cfg, initial=False):
@@ -78,8 +79,16 @@ class Pursuit:
 
     def command(self, observation, route_state):
         c,e,t = self.cfg,route_state.error,observation['elapsed_sim_s']
-        action = np.array([c['speed']*max(0,math.cos(e)) if abs(e)<.95 else 0,
-                           0,np.clip(c['yaw_gain']*e,-c['max_turn'],c['max_turn'])])
+        # Circular arc through the body-frame lookahead: curvature = 2*y / distance².
+        # SetWalkCommand is normalized. Stair logs expose the forward/yaw policy scales.
+        forward=c['speed']*max(0,math.cos(e))
+        if abs(e)<.95:
+            curvature=2*math.sin(e)/max(route_state.target_distance,.05)
+            turn=forward*c['forward_scale_mps']*curvature/c['yaw_scale_radps']
+        else:
+            forward=0.
+            turn=c['yaw_gain']*e
+        action=np.array([forward,0,np.clip(turn,-c['max_turn'],c['max_turn'])])
         if self.mode=='gaussian':
             action += self.rng.normal(0,c['noise_sigma'])
         if self.mode=='burst':
