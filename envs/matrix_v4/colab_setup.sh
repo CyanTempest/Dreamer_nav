@@ -41,9 +41,13 @@ system_packages() {
     libfontconfig1 libsm6 libpulse0 libgomp1
   if [[ $ID == ubuntu ]]; then rm -f -- "$apt_source"; trap - EXIT; fi
   # Shared bootstrap must be executable by the unprivileged simulation user.
+  # Colab may repoint /usr/bin/python3 while APT installs the distro's venv modules.
+  local distro_python
+  distro_python=$(awk '$1 == "default-version" {print $3}' /usr/share/python3/debian_defaults)
+  [[ $distro_python =~ ^python3\.[0-9]+$ ]] || die "Cannot determine APT Python version"
   (umask 022
-   python3 -m venv /opt/matrix-v4-tools
-   /opt/matrix-v4-tools/bin/python -m pip install --disable-pip-version-check uv==0.13.7)
+   "/usr/bin/$distro_python" -m venv /opt/matrix-v4-tools
+   "/opt/matrix-v4-tools/bin/$distro_python" -m pip install --disable-pip-version-check uv==0.13.7)
   if ! id matrixv4 >/dev/null 2>&1; then useradd --create-home --user-group --shell /bin/bash matrixv4; fi
 }
 
