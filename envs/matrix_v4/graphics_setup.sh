@@ -17,7 +17,7 @@ if [[ -d /usr/lib64-nvidia ]]; then
 fi
 probe() {
   vulkaninfo --summary > "$root/vulkan-summary.log" 2>&1 &&
-    grep -Eq 'deviceName[[:space:]]*=[[:space:]]*NVIDIA' "$root/vulkan-summary.log" &&
+    grep -Eq 'vendorID[[:space:]]*=[[:space:]]*0x10de' "$root/vulkan-summary.log" &&
     python3 -c 'import ctypes; ctypes.CDLL("libnvoptix.so.1")'
 }
 if ! probe; then

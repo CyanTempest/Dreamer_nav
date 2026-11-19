@@ -75,7 +75,7 @@ install_envs() {
   export UV_PYTHON_BIN_DIR="$root/bin" UV_NO_PROGRESS=1
   mkdir -p "$root/venvs" "$UV_PYTHON_BIN_DIR"
   "$uv" python install 3.10.21 3.11.18
-  for name in v3 v4 bridge; do
+  for name in "${@:2}"; do
     py=3.11.18
     if [[ $name == v4 ]]; then py=3.10.21; fi
     if [[ ! -x "$root/venvs/$name/bin/python" ]]; then
@@ -132,8 +132,8 @@ install_assets() {
 [[ $(uname -sm) == 'Linux x86_64' ]] || die "Linux x86_64 required"
 case "$mode" in
   system) system_packages; exit ;;
-  all|assets|envs) ;;
-  *) die "Usage: $0 [all|assets|envs|system]" ;;
+  all|assets|envs|collect) ;;
+  *) die "Usage: $0 [all|assets|envs|system|collect]" ;;
 esac
 [[ $root == /* && $root != / ]] || die "MATRIX_V4_ROOT must be an absolute workspace path"
 if [[ $EUID == 0 ]]; then
@@ -163,6 +163,10 @@ if [[ $EUID == 0 ]]; then
   fi
   # A standalone script downloaded by root may also have mode 0600.
   install -m 0755 "$0" "$handoff/setup.sh"
+  if [[ $mode == collect ]]; then
+    install -d -o matrixv4 -g matrixv4 "$root/collection-setup"
+    install -m 0644 "$here"/{private_assets.py,requirements-bridge.txt,graphics_setup.sh} "$root/collection-setup/"
+  fi
   runuser -u matrixv4 -- env MATRIX_V4_ROOT="$root" MATRIX_INBOX="$inbox" MATRIX_SCENE="$scene" bash "$handoff/setup.sh" "$mode"
   exit
 fi
@@ -173,10 +177,18 @@ scratch=$(mktemp -d "$root/.setup.XXXXXXXX")
 trap 'rm -rf -- "$scratch"' EXIT
 if [[ $mode == assets ]]; then install_assets; exit; fi
 [[ -x "$uv" ]] || die "Run the system phase in the VM/image first"
-if [[ $mode == envs ]]; then install_envs "$here"; exit; fi
+if [[ $mode == envs ]]; then install_envs "$here" v3 v4 bridge; exit; fi
+if [[ $mode == collect ]]; then
+  cd "$root"
+  bash collection-setup/graphics_setup.sh "$root"
+  install_envs "$root/collection-setup" bridge
+  fetch_release
+  "$root/venvs/bridge/bin/python" collection-setup/private_assets.py install "$inbox" "$root" --scene "$scene"
+  exit
+fi
 clone_sources
 bash "$root/nav/envs/matrix_v4/graphics_setup.sh" "$root"
-install_envs "$root/nav/envs/matrix_v4"
+install_envs "$root/nav/envs/matrix_v4" v3 v4 bridge
 fetch_release
 install_assets
 echo "Prepared files in $root. Host graphics and the closed loop require a separate runtime test."
