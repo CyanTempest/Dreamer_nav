@@ -126,6 +126,10 @@ def configure(inputs, release, scene):
     presets = {**dual, "IMU": default["IMU"], "Odom": default["Odom"]}
     if sorted(s["sensor_type"] for s in presets.values()) != ["airy", "airy", "imu", "odom"]:
         raise ValueError("Unexpected vendor sensor preset")
+    # Terrain and robot share one UE mounting actor in the combined model.
+    for sensor in presets.values():
+        if sensor["sensor_type"] == "airy":
+            sensor["ignore_mounting_actor"] = False
     candidate.update(inside_mc=True, mujoco_running=False, sensor_sync_mode=True, sensors=presets)
     active["robot"].update(candidate)
     zgws = model / "zgws"
@@ -143,13 +147,20 @@ def configure(inputs, release, scene):
         link = Path(tmp) / "atec_full"
         link.symlink_to(terrain)
         link.replace(zgws / link.name)
-    # The embedded controller selects the ZGWS policy from the entry basename.
+    # Keep the combined model outside UeSim/Content. Under Content, the UE
+    # importer requires cooked StaticMeshes and skips our private OBJ meshes.
+    external = release.parent / "models" / "zgws"
+    external.mkdir(parents=True, exist_ok=True)
     selected = release / "UeSim" / candidate["mujoco_model"]
-    with tempfile.NamedTemporaryFile(dir=zgws, delete=False) as out:
-        with selected.open("rb") as src:
-            shutil.copyfileobj(src, out)
-    Path(out.name).replace(zgws / "zgws.xml")
-    active["robot"]["mujoco_model"] = "Content/model/zgws/zgws.xml"
+    with tempfile.TemporaryDirectory(dir=external) as tmp:
+        stage = Path(tmp)
+        for source in [zgws / "assets", zgws / "atec_full", *(assets / "zgws").glob("*.xml")]:
+            link = stage / source.name
+            link.symlink_to(source.resolve())
+            link.replace(external / source.name)
+        shutil.copyfile(selected, stage / "zgws.xml")
+        (stage / "zgws.xml").replace(external / "zgws.xml")
+    active["robot"]["mujoco_model"] = str(external / "zgws.xml")
     with tempfile.NamedTemporaryFile("w", dir=config, delete=False) as out:
         json.dump(active, out, indent=2)
         out.write("\n")
