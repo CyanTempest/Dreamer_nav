@@ -12,9 +12,9 @@ from pathlib import Path
 import numpy as np
 
 
-FULL = Path("data/trail_a_mujoco/full_v1")
+TERRAIN = Path("data/trail_a_mujoco")
+VERSIONS = ("full_v1", "full_v2")
 MODEL = Path("UeSim/Content/model")
-OVERLAY = FULL / "matrix" / MODEL
 WEIGHTS = Path("checkpoints/nav4_dreamer_v8_s0")
 BUNDLE = "matrix-v4-private.tar.gz"
 
@@ -27,7 +27,9 @@ def sha256(path):
         return digest.hexdigest()
 
 
-def pack(source, output):
+def pack(source, output, version):
+    full = TERRAIN / version
+    overlay = full / "matrix" / MODEL
     output.mkdir(parents=True, exist_ok=True)
     # Same centreline and scan-frame metres as nav4/matrix/full_scan.py:19-23.
     with np.load(source / "data/trail_a_v8_frozen/forward/map.npz") as bank:
@@ -35,10 +37,14 @@ def pack(source, output):
         xy = np.column_stack([np.interp(s, bank["s"], col) for col in bank["route"][:, :2].T])
     route = io.BytesIO()
     np.savez_compressed(route, station_m=s, xy_m=xy)
-    zgws = source / OVERLAY / "zgws"
+    zgws = source / overlay / "zgws"
     paths = [WEIGHTS / "latest.pkl", WEIGHTS / "config.json"]
-    paths += [FULL / name for name in ("assembly.json", "frame_alignment.json", "route_vs_v8.csv", "USAGE.md")]
-    paths += [OVERLAY / "config" / f"config_atec_{scene}_candidate.json" for scene in ("full", "window_00")]
+    paths += [full / "assembly.json", full / "USAGE.md"]
+    if version == "full_v1":
+        paths.extend(full / name for name in ("frame_alignment.json", "route_vs_v8.csv"))
+    else:
+        paths.append(full / "work/spawns.json")
+    paths += [overlay / "config" / f"config_atec_{scene}_candidate.json" for scene in ("full", "window_00")]
     for pattern in ("zgws_atec_*.xml", "atec_scene_*.xml", "atec_full"):
         hits = sorted(zgws.glob(pattern))
         if not hits:
@@ -46,10 +52,10 @@ def pack(source, output):
         paths.extend(item.relative_to(source) for item in hits)
     with tempfile.TemporaryDirectory(dir=output) as scratch:
         archive = Path(scratch) / BUNDLE
-        with tarfile.open(archive, "w:gz", compresslevel=2) as tar:
+        with tarfile.open(archive, "w:gz", compresslevel=2, dereference=True) as tar:
             for rel in paths:
                 tar.add(source / rel, arcname=str(rel))
-            info = tarfile.TarInfo(str(FULL / "route.npz"))
+            info = tarfile.TarInfo(str(full / "route.npz"))
             info.size = route.tell()
             route.seek(0)
             tar.addfile(info, route)
@@ -59,6 +65,13 @@ def pack(source, output):
         archive.replace(output / BUNDLE)
         checksum.replace(output / checksum.name)
     print(f"{digest}  {output / BUNDLE}")
+
+
+def scene_directory(inputs):
+    matches = [inputs / TERRAIN / v for v in VERSIONS if (inputs / TERRAIN / v).is_dir()]
+    if len(matches) != 1:
+        raise ValueError("Expected one terrain version in private bundle")
+    return matches[0]
 
 
 def receive(inbox, private):
@@ -76,7 +89,7 @@ def receive(inbox, private):
                 for member in tar:
                     rel = Path(member.name)
                     if (rel.is_absolute() or ".." in rel.parts or
-                            not (rel.is_relative_to(FULL) or rel.is_relative_to(WEIGHTS))):
+                            not (any(rel.is_relative_to(TERRAIN / v) for v in VERSIONS) or rel.is_relative_to(WEIGHTS))):
                         raise ValueError(f"Unexpected input path: {rel}")
                     dst = staged / rel
                     if member.isdir():
@@ -87,8 +100,13 @@ def receive(inbox, private):
                             shutil.copyfileobj(src, out)
                     else:
                         raise ValueError(f"Unsupported archive entry: {rel}")
-            required = [WEIGHTS / "latest.pkl", WEIGHTS / "config.json", FULL / "assembly.json",
-                        FULL / "route.npz", FULL / "route_vs_v8.csv", FULL / "frame_alignment.json"]
+            full = scene_directory(staged)
+            required = [WEIGHTS / "latest.pkl", WEIGHTS / "config.json", full / "assembly.json",
+                        full / "route.npz"]
+            if full.name == "full_v1":
+                required.extend([full / "route_vs_v8.csv", full / "frame_alignment.json"])
+            else:
+                required.append(full / "work/spawns.json")
             for rel in required:
                 if not (staged / rel).stat().st_size:
                     raise ValueError(f"Empty asset: {rel}")
@@ -97,7 +115,7 @@ def receive(inbox, private):
 
 
 def configure(inputs, release, scene):
-    assets = inputs / OVERLAY
+    assets = scene_directory(inputs) / "matrix" / MODEL
     model = release / MODEL
     config = model / "config"
     candidate = json.loads((assets / "config" / f"config_atec_{scene}_candidate.json").read_text())["robot"]
@@ -125,8 +143,13 @@ def configure(inputs, release, scene):
         link = Path(tmp) / "atec_full"
         link.symlink_to(terrain)
         link.replace(zgws / link.name)
-    if not (release / "UeSim" / candidate["mujoco_model"]).is_file():
-        raise FileNotFoundError(candidate["mujoco_model"])
+    # The embedded controller selects the ZGWS policy from the entry basename.
+    selected = release / "UeSim" / candidate["mujoco_model"]
+    with tempfile.NamedTemporaryFile(dir=zgws, delete=False) as out:
+        with selected.open("rb") as src:
+            shutil.copyfileobj(src, out)
+    Path(out.name).replace(zgws / "zgws.xml")
+    active["robot"]["mujoco_model"] = "Content/model/zgws/zgws.xml"
     with tempfile.NamedTemporaryFile("w", dir=config, delete=False) as out:
         json.dump(active, out, indent=2)
         out.write("\n")
@@ -139,6 +162,7 @@ def main():
     create = commands.add_parser("pack")
     create.add_argument("source", type=Path, help="main checkout with the private data and checkpoint")
     create.add_argument("output", type=Path)
+    create.add_argument("--version", choices=VERSIONS, default="full_v1")
     install = commands.add_parser("install")
     install.add_argument("inbox", type=Path)
     install.add_argument("runtime", type=Path)
@@ -146,7 +170,7 @@ def main():
     args = parser.parse_args()
     os.umask(0o077)
     if args.command == "pack":
-        pack(args.source.resolve(), args.output.resolve())
+        pack(args.source.resolve(), args.output.resolve(), args.version)
     else:
         root = args.runtime.resolve()
         inputs = receive(args.inbox, root / "private")
