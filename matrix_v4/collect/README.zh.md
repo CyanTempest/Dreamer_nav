@@ -23,3 +23,7 @@
 每回合是可用 numpy.load(allow_pickle=False) 读取的压缩 NPZ。meta 为 JSON 字符串，含种子、窗口、出生姿态、驾驶器、配置、GPU、并发和终止原因。起身失败回合可有零行。每条决策的 frame_index 两列按前、后顺序指向该侧帧号，−1 表示未收到。唯一帧只写一次，例如 front_00000_mm、front_00000_intensity、front_00000_cdr_zstd（用 codec.unpack_wire 恢复原报文字节）、front_00000_shape_count 和 front_00000_times。shape_count 为原始 height、width、原始槽数和有限点数，times 为 Header、末点 UTC 以及单调接收时刻。96×900 图的列保留设备原生 firing 顺序，较短帧在尾部补零，无回波或填充的距离为 0。65535 为量程溢出或该端点值，完整 CDR 可恢复所有原始位，包括 float32 XYZ、intensity、逐点 float64 时间和 NaN。intensity 是发布器的标签值。
 
 step 数组含 age_s、imu_quat (xyzw)、imu_omega、actual_twist、action、priv_pose (xyz+xyzw)、priv_progress、priv_cross_track、priv_clearance、reward、qualified 和 terminal。action 为 SetWalkCommand 接收的归一化三轴目标，actual_twist 为 Odom 的 SI 速度。reward 记录从上一状态到本状态的增量，action 是在本状态发出的命令，训练转移应匹配下一步的 reward。末步终止或截断时标记 terminal。V3 可实现 control.Driver.command，在内部用已选双帧与 IMU 构建其所需 BEV，生命周期按回合管理。分片保留原始传感器表示。
+
+## 服务器产能测试入口
+
+在研究服务器将 MATRIX_COLLECTION_DIR 指向实验目录，内含 inputs 和相邻的 exp_nav3_matrix_v4、matrix_v4_val、envs。host/suite.sh 检查余额并依次申请 T4、L4、G4，逐档采样、校验归档并关闭会话。已有结果可用 host/analyze.py 和 host/audit.py 在相同变量下复算。通用入口只用于新预算，运行前准备对应的已授权 SSH 密钥和私有包。
