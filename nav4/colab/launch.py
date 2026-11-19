@@ -20,7 +20,7 @@ CLI = Path.home() / '.local/bin/colab'
 SESSION = 'nav4a100-dev'
 SSH = [HERE / 'vm-ssh.sh', SESSION]
 RATE = 8.88
-TARGET = 13
+TARGET = 13  # default compute-unit budget per launch; override with --budget
 
 
 def usage():
@@ -87,11 +87,13 @@ def train_and_sync(a, run, remaining, map_dir='/content/nav4-map', weights=None)
 
 
 def main():
+    global TARGET
     defaults = json.loads((REPO/'nav4/config/train.json').read_text())
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--map', type=Path, required=True)
     p.add_argument('--name', required=True)
     p.add_argument('--seconds', type=int, required=True)
+    p.add_argument('--budget', type=float, default=13, help='compute units this launch may spend (default 13)')
     p.add_argument('--envs', type=int, default=defaults['envs'])
     p.add_argument('--batch', type=int, default=defaults['batch_size'])
     p.add_argument('--model', default=defaults['model'])
@@ -103,6 +105,7 @@ def main():
                    help='reuse the single named A100 and count its budget from this timezone-aware ISO timestamp')
     p.add_argument('--weights', type=Path, help='matching best.pkl or latest.pkl for a fresh replay')
     a = p.parse_args()
+    TARGET = a.budget
     if a.eval_minutes is None:
         a.eval_minutes = 60 if a.fast_a100 else defaults['eval']['minutes']
     if not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_.-]*', a.name):
