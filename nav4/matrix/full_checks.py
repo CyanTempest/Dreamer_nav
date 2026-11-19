@@ -228,12 +228,13 @@ def contact_local(xy, station, padding=0.):
     return root
 
 
-def proxy_case(case):
+def proxy_case(case, root=None):
     cfg = CONFIG["physics"]
     axis = case["forward"]
     xy = case["xy"]
     half = np.asarray(cfg["box_half_size_m"])
-    root = contact_local(xy, case["station_m"])
+    if root is None:
+        root = contact_local(xy, case["station_m"])
     world = root.find("worldbody")
     body = xml(world, "body", name="contact_proxy")
     xml(body, "freejoint", name="proxy_joint")
