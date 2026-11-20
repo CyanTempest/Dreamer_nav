@@ -18,6 +18,7 @@ from nav4.common import action_target, load_config
 from nav4.policy import DreamerPolicy, read_checkpoint
 from nav4.tracker import command
 from perception import Memory, Stream
+from odometry import planar_velocity
 from runtime import BRIDGE, ROOT, Instance, set_pose
 
 def save_json(path, item):
@@ -145,7 +146,7 @@ class Evaluation:
                 if self.origin_yaw is None: self.origin_yaw=yaw
                 imu=min(list(stream.imu)[-45:],key=lambda x:abs(x[1]-stamp))
                 ir,ip,_=attitude(imu[2])
-                vel=np.array([twist[0],twist[1],twist[5]],'f')
+                vel=planar_velocity(stream.odom,stamp,pose,yaw)
                 state=np.array([self.distance/1000,math.cos(yaw-self.origin_yaw),
                     math.sin(yaw-self.origin_yaw),ip,ir,0,0,*vel,*prev],'f')
                 bev,ages=self.memory.update(stream,pose,stamp,yaw)
@@ -177,6 +178,7 @@ class Evaluation:
                 beat.target=None if reason else (pose[:2]+offset,float(speed),time.monotonic())
                 row=dict(epoch=arrival+stream.epoch_offset,sim=stamp,pose=pose,vel=vel,action=act,state=state,
                          bev=bev,station=current,lateral=st.lateral,clearance=st.clearance,
+                         raw_twist=np.asarray(twist),imu_quat=np.asarray(imu[2]),
                          norm_command=beat.last.copy(),lidar_age=np.mean(ages) if ages else np.nan,
                          imu_delta=imu[1]-stamp,assist=assist)
                 for k,v in row.items(): rec[k].append(v)
