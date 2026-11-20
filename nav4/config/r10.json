@@ -17,7 +17,33 @@
           "hi": 721.4290161132812
         }
       ]
-    }
+    },
+    "sensor.lidars": [
+      {
+        "xy": [
+          0.46615,
+          0.0
+        ],
+        "z": 0.642,
+        "axis": [
+          1.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "xy": [
+          -0.454745,
+          -0.040323
+        ],
+        "z": 0.69836,
+        "axis": [
+          -1.0,
+          0.0,
+          0.0
+        ]
+      }
+    ]
   },
   "replay": {
     "capacity": 1680000,
@@ -25,5 +51,8 @@
     "compress": false,
     "batched": true
   },
-  "save_minutes": 60
+  "save_minutes": 60,
+  "notes": {
+    "sensor.lidars": "User 2026-11-20: train with the official MATRiX dual-Airy preset (config_dual_airy_gpu.json, loaded by ZGWS stair2): front (+0.46615, 0, +0.100), rear (-0.454745, -0.040323, +0.156355) relative to base_link, hemispheres facing forward / backward; base_link 0.542 m above the contact plane in the zgws.xml home pose. Replaces the earlier hand calibration (+0.366 / -0.352 m, 0.49-0.50 m high)."
+  }
 }
