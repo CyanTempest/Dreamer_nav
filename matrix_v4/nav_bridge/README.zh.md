@@ -13,7 +13,7 @@ Colab 上的 `/content/nav` 放冻结源码，`/content/best.pkl` 放权重，`/
 1. 在服务器 CPU 上以冻结源码及只读 `data` 为输入运行 `fit.py 42`，把生成的 JSON 上传为 `/content/cal_pose.json`。在 VM 中用 bridge 环境运行 `runtime.py`，其依赖路径包含 `/content/collect` 和发布包 `Tools`。输入固定的前进和双向旋转命令，记录 Odom 并将实测速率写入 `/content/eval/calibration/calibration.json`。
 2. VM 的 nav4 环境使用冻结版 `nav4/colab/requirements.txt` 和 `eclipse-zenoh==1.10.2`。运行 `bash /content/nav_bridge/start_policy.sh`。该入口设置 JAX CUDA 平台及 22% 显存比例。
 3. `drive.py` 在 5 Hz 物理时钟调用确定性动作头。20 Hz 心跳使用当前 Odom 重新求世界目标点在机体系的坐标，调用 nav4 跟踪律，将前进和偏航指令按标定缩放，由 Puerts 调用原生 Stair 控制器。向外发布的 JPEG 仅由 `record_camera.py` 接收。
-4. 失败时 VM 发布 `request.json`。服务器服务运行 `fit.py`，按 1 m 前移目标检查站姿并将答案写入 `pose-NNNN.json`。随后冷启动 MATRiX、重新起身、清空点云记忆和策略状态。从起点累计的里程和初始航向延续。每段使用独立目录 `leg-NNNN`。
+4. 失败时 VM 发布 `request.json`。从服务器实验目录运行 `python3 /path/to/nav_bridge/host_service.py`，它复用该目录的 `ops/mux.sh` 和 `logs/start_usage`。服务运行 `fit.py`，按 1 m 前移目标检查站姿并将答案写入 `pose-NNNN.json`。随后冷启动 MATRiX、重新起身、清空点云记忆和策略状态。从起点累计的里程和初始航向延续。每段使用独立目录 `leg-NNNN`。
 5. VM 中运行 `finalize.py` 汇总各段已编码的展示视频，保存 Stair 确认记录和 ffprobe 结果。服务器运行 `analyze.py RESULTS SEED914901_NPZ ASSEMBLY_JSON`，生成轨迹、协助表和五站 BEV 对比。
 
 ## 观测与记录
