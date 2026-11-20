@@ -95,7 +95,7 @@ def drive(env, state, obs, act, guard=None, assist=False, max_assists=None, max_
     import numpy as np
     bank, n, start = env.bank, env.n, env.cfg['task']['route_start']
     valid = np.asarray(env.feasible(state, state['pos'], state['yaw']))
-    final = np.asarray(bank.final(state['mids']))
+    final = np.asarray(env.final(state['mids']))
     budget = max_steps or 2*int(np.max(np.asarray(state['max_steps'])))
     rows = [dict(slot=i, map=bank.names[int(m)], map_index=int(m), valid_start=bool(valid[i]), start_station=start,
                  final_target=float(final[i]), success=False, arrived=False, truncated=False, assists=0,
@@ -189,7 +189,9 @@ def main(argv=None):
         payload = read_checkpoint(a.checkpoint)
         meta = payload.get('nav4')
     bank = TrailBank(a.manifest, a.maps)
-    env = TrailEnv(bank, bank.count*a.repeats, {**(meta['env_overrides'] if meta else {}), **overrides(a.env)})
+    env = TrailEnv(bank, bank.count*a.repeats, {**(meta['env_overrides'] if meta else {}),
+                                               'sensor.camera_off_probability': 0., 'task.start_mixture': None,
+                                               **overrides(a.env)})
     planner = Planner(env.cfg, overrides(a.planner))
     n, start = env.n, env.cfg['task']['route_start']
     state, obs, _ = env.reset(jax.random.PRNGKey(a.seed), start_s=start)
@@ -199,7 +201,8 @@ def main(argv=None):
         act = planner
     else:
         from .policy import DreamerPolicy
-        dreamer = DreamerPolicy(0, str(out.parent/'policy_runtime'), jax_overrides=dict(autotune=1, deterministic=True),
+        dreamer = DreamerPolicy(0, str(out.parent/'policy_runtime'), jax_overrides=dict(autotune=1, deterministic=True,
+                                    platform='cpu' if jax.default_backend() == 'cpu' else 'cuda'),
                                 deterministic=a.action == 'mode', obs=meta['obs_space'] if meta else None).load(payload)
         del payload
         leakage = dreamer.leakage_check(obs)

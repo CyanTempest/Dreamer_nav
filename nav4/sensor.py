@@ -22,6 +22,16 @@ def opening(x, size):
     return x
 
 
+def measured_opening(height, keep, size):
+    """Both morphological reductions use only cells with a surviving return."""
+    window = (1, size, size)
+    lo = jax.lax.reduce_window(jnp.where(keep, height, jnp.inf), jnp.inf, jax.lax.min,
+                               window, (1, 1, 1), 'SAME')
+    ground = jax.lax.reduce_window(jnp.where(keep, lo, -jnp.inf), -jnp.inf, jax.lax.max,
+                                   window, (1, 1, 1), 'SAME')
+    return jnp.where(keep, ground, 0.)
+
+
 def neighbours(x):
     """The 8 neighbours of every cell, order (-1,-1),(-1,0),(-1,1),(0,-1),(0,1),(1,-1),(1,0),(1,1).
 
@@ -104,7 +114,18 @@ def horizon_ok(env, state, origin, zsensor, rel, rr, delta):
     s = env.cfg['sensor']
     pos, yaw = state['pos'], state['yaw']
     xy = (pos+rotate(jnp.broadcast_to(origin, pos.shape), yaw))[:, None, None]+rotate(env.polar[None], yaw)
-    top = env.bank.atlas_ground(state['mids'], xy)+env.obstacle_geometry(state['obstacles'], xy)[1]
+    rise = env.obstacle_geometry(state['obstacles'], xy)[1]
+    if s['version'] == 'v2':
+        # Layer 1 is the highest visual surface, including soft vegetation. An
+        # unobserved map column with only extrapolated ground cannot cast a shadow.
+        mids, p = env.bank._cells(state['mids'], xy)
+        ij = jnp.floor(p+.5).astype(jnp.int32)
+        ground = env.bank._gather(env.bank.ground, mids, ij, 0.)
+        known = env.bank._gather(env.bank.bands[..., 18], mids, ij, 0.) > .5
+        static = env.bank._gather(env.bank.layers[..., 1], mids, ij, -jnp.inf)
+        top = jnp.where(known | (static > ground) | (rise > 0), jnp.maximum(static, ground+rise), -jnp.inf)
+    else:
+        top = env.bank.atlas_ground(state['mids'], xy)+rise
     slope = (top-zsensor[:, None, None])/np.maximum(env.radii, s['horizon_min_range'])
     horizon = jax.lax.associative_scan(jnp.maximum, slope, axis=-1)
     horizon = jnp.concatenate([jnp.full_like(horizon[..., :1], -jnp.inf), horizon[..., :-1]], -1)
@@ -122,6 +143,7 @@ def frame(env, state, key):
     height, support flag), keep [N,S,S] (returned and not dropped) and seen [N,S,S] (visible)."""
     cfg, s = env.cfg, env.cfg['sensor']
     res = cfg['bev']['res']
+    v2 = s['version'] == 'v2'
     pos, yaw, mids = state['pos'], state['yaw'], state['mids']
     world = pos[:, None, None]+rotate(env.local[None], yaw)
     g, low, high, cover, known = env.bank.atlas(mids, world, s['atlas_bands'])
@@ -131,7 +153,13 @@ def frame(env, state, key):
     lower = jnp.concatenate([g[..., None], g[..., None]+low, g[..., None]], -1)
     present = jnp.concatenate([(known > .5)[..., None], (high >= 0) & (cover >= s['band_coverage']),
                                (distance < 0)[..., None]], -1)
-    gx, gy = gradient(g, res)
+    if v2:
+        # Unknown atlas heights cannot change a neighbouring cell's beam footprint.
+        ns, ks = neighbours(g), neighbours(known > .5)
+        slopes = [jnp.where((known > .5) & k, h-g, 0.) for h, k in zip(ns, ks)]
+        gx, gy = (slopes[6]-slopes[1])/(2*res), (slopes[4]-slopes[3])/(2*res)
+    else:
+        gx, gy = gradient(g, res)
     vis = jnp.zeros(present.shape, bool)
     for lidar in s['lidars']:
         origin = np.array(lidar['xy'], np.float32)
@@ -152,6 +180,11 @@ def frame(env, state, key):
         width = res/2*(jnp.abs(ax+az*gx[..., None])+jnp.abs(ay+az*gy[..., None]))+(target-lower)*.5*jnp.abs(az)
         angle = jnp.arcsin(jnp.clip(proj/jnp.sqrt(jnp.maximum(r2, 1e-8)), -1, 1))
         first = jnp.clip(jnp.ceil(jnp.rad2deg(angle-width)*100).astype(jnp.int32)+100, 0, len(env.next_beam)-1)
+        if v2:
+            # Test intersection with the finite cell and the calibrated outer ring.
+            # A centre-only hemisphere cutoff otherwise drops partial edge returns.
+            fov = (r3 >= s['lidar_range'][0]) & (r3 <= s['lidar_range'][1])
+            fov &= angle+width >= np.deg2rad(s['lidar_vertical_deg'][0])
         fov &= env.next_beam[first] <= jnp.rad2deg(angle+width)
         vis |= fov & horizon_ok(env, state, origin, zsensor, rel, rr, delta)
     cam = s['camera']
@@ -164,17 +197,38 @@ def frame(env, state, key):
     fov = ((forward >= cam['range'][0]) & (forward <= cam['range'][1])
            & (np.abs(rel[..., 1, None]) <= forward*np.tan(np.deg2rad(cam['half_hfov_deg'])))
            & (jnp.abs(delta) <= forward*np.tan(np.deg2rad(cam['half_vfov_deg']))))
-    vis |= fov & horizon_ok(env, state, origin, zsensor, rel, rr, delta)
+    cam_vis = fov & horizon_ok(env, state, origin, zsensor, rel, rr, delta)
+    lidar_vis = vis
+    if v2:
+        cam_vis &= state['camera_on'][:, None, None, None]
+    vis |= cam_vis
     blind = (np.abs(env.local[..., 0]) < s['blind'][0]) & (np.abs(env.local[..., 1]) < s['blind'][1])
     vis &= present & ~blind[..., None]
     seen = jnp.any(vis, -1)
-    ground = jnp.where(seen, jnp.min(jnp.where(vis, lower, jnp.inf), -1), g)
-    ground = opening(ground, s['ground_opening'])
+    if not v2:
+        ground = jnp.where(seen, jnp.min(jnp.where(vis, lower, jnp.inf), -1), g)
+        ground = opening(ground, s['ground_opening'])
     top = jnp.max(jnp.where(vis, target, -jnp.inf), -1)
     k_drop, k_ground, k_top = jax.random.split(key, 3)
     std, base, per_m2 = [state['noise'][:, i, None, None] for i in range(3)]
     dropout = jnp.clip(base+per_m2*np.sum(env.local**2, -1), 0, 1)
     keep = seen & (jax.random.uniform(k_drop, seen.shape) >= dropout)
+    if v2:
+        # Hit heights in the sensor rig frame. z0 places the virtual emitter in
+        # the scene. It is never a missing measurement or a memory registration datum.
+        hit = target-z0[:, None, None, None]
+        cam_only = cam_vis & ~lidar_vis
+        # Stereo axial-depth uncertainty from approximately constant disparity
+        # noise. Project depth error into vertical height using the camera ray.
+        sigma_cam = s['camera_depth_sigma_per_m2']*jnp.abs(forward*delta)
+        sigma = jnp.where(cam_only, sigma_cam, s['lidar_height_std_m'])
+        hits = hit + jax.random.normal(k_ground, hit.shape)*sigma
+        lowest = jnp.min(jnp.where(vis, hits, jnp.inf), -1)
+        height = measured_opening(lowest, keep, s['ground_opening'])
+        top = jnp.max(jnp.where(vis, hits, -jnp.inf), -1)
+        obstacle = jnp.where(keep, jnp.maximum(0., top-height), 0.)
+        support = support_mask(height, keep, obstacle, cfg)
+        return jnp.stack([height, obstacle, support.astype(jnp.float32)], -1), keep, seen
     height = ground-z0[:, None, None]+jax.random.normal(k_ground, seen.shape)*std
     top = top-z0[:, None, None]+jax.random.normal(k_top, seen.shape)*std
     obstacle = jnp.maximum(0., top-height)

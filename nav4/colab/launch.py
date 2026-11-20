@@ -40,6 +40,8 @@ def train_and_sync(a, run, remaining, map_dir='/content/nav4-map', weights=None)
             '--batch', str(a.batch), '--seed', str(a.seed), '--eval-minutes', str(a.eval_minutes)]
     if a.save_minutes is not None:
         args += ['--save-minutes', str(a.save_minutes)]
+    if getattr(a, 'r10', False):
+        args += ['--r10']
     if a.fast_a100:
         args += ['--fast-a100']
     if weights:
@@ -99,6 +101,7 @@ def main():
     p.add_argument('--model', default=defaults['model'])
     p.add_argument('--seed', type=int, default=defaults['seed'])
     p.add_argument('--save-minutes', type=float, help='override the interval between full checkpoints')
+    p.add_argument('--r10', action='store_true', help='enable the v9 R10 preset')
     p.add_argument('--fast-a100', action='store_true', help='use the dedicated A100 training settings')
     p.add_argument('--eval-minutes', type=float)
     p.add_argument('--allocated-at', type=datetime.fromisoformat,
@@ -135,7 +138,8 @@ def main():
             tar.add(a.map / rel, str(rel))
         with tarfile.open(stage / 'nav4-code.tar', 'w') as tar:
             for name in ['nav4/train_dreamer.py', 'nav4/policy.py', 'nav4/config/train.json',
-                         'nav4/colab/train.sh', 'nav4/colab/requirements.txt']:
+                         'nav4/config/r10.json', 'nav4/config/env.json', 'nav4/env.py',
+                         'nav4/sensor.py', 'nav4/evaluate.py', 'nav4/colab/train.sh', 'nav4/colab/requirements.txt']:
                 tar.add(REPO / name, name)
         sessions = subprocess.check_output([CLI, 'sessions'], text=True, stderr=subprocess.STDOUT, timeout=45)
         balance, rate, active = usage()

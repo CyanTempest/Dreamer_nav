@@ -32,6 +32,22 @@ class TrailEnv:
     def __init__(self, bank, num_envs, config=None):
         """config: {'section.key': value} overrides of nav4/config/env.json."""
         self.bank, self.n, self.cfg = bank, num_envs, load_config('env', config)
+        task = self.cfg['task']
+        end = task['end_station']
+        if end is not None:
+            if not np.isfinite(end) or not task['route_start'] < end <= np.min(np.asarray(bank.gates[:, -1])):
+                raise ValueError('end_station must follow route_start and lie within every selected route')
+        mix = task['start_mixture']
+        if mix is not None:
+            final = np.min(np.asarray(bank.gates[:, -1])) if end is None else end
+            probs = [mix['route_start']] + [row['p'] for row in mix['intervals']]
+            if (not all(0 <= p <= 1 for p in probs) or sum(probs) > 1 or
+                    any(not 0 <= i['lo'] < i['hi'] <= final for i in mix['intervals']) or
+                    task['start_attempts'] < 1):
+                raise ValueError('invalid start_mixture probabilities, station interval or start_attempts')
+        sensor_cfg = self.cfg['sensor']
+        if sensor_cfg['version'] not in ('v1', 'v2') or not 0 <= sensor_cfg['camera_off_probability'] <= 1:
+            raise ValueError('invalid sensor version or camera_off_probability')
         self._setup()
         for name in ('reset', 'step', 'observe', 'feasible', 'restart_pose'):
             setattr(self, name, partial(jax.jit(getattr(TrailEnv, '_'+name)), self))
@@ -53,6 +69,8 @@ class TrailEnv:
         self.next_beam = jnp.asarray(np.r_[beams, 1e3][np.searchsorted(beams, np.arange(-100, 9101)*.01)])
         self.delays = [tracker.delay_steps(x, c) for x in c['dynamics']['delay_s']]
         self.window = int(np.ceil(c['task']['project_window']/self.bank.min_spacing))
+        end = c['task']['end_station']
+        self.gates = self.bank.gates if end is None else jnp.minimum(self.bank.gates, end)
         self.gate_count = int(self.bank.gates.shape[1])
         if c['localization']['mode'] not in ('random_walk', 'odometry'):
             raise ValueError(f"localization.mode must be random_walk or odometry, not {c['localization']['mode']}")
@@ -105,7 +123,7 @@ class TrailEnv:
         """Assist restart: first feasible (station, lateral offset) at or after `station`, and whether found."""
         a = self.cfg['assist']
         stations = jnp.minimum(station[:, None]+np.arange(0, a['search']+1e-6, a['station_step']),
-                               self.bank.final(state['mids'])[:, None]-a['end_clearance'])
+                               self.final(state['mids'])[:, None]-a['end_clearance'])
         offsets = jnp.array(a['offsets'], jnp.float32)
         p, yaw, _ = self.bank.route_at(state['mids'], stations)
         yaw = jnp.broadcast_to(yaw[..., None], yaw.shape+offsets.shape)
@@ -182,11 +200,58 @@ class TrailEnv:
         return jnp.pad(vec, ((0, 0), (0, 2*len(self.cfg['task']['waypoints'])+1-vec.shape[1])))
 
     # ---------------------------------------------------------------- episodes
+    def final(self, mids):
+        return self.gates[mids, -1]
+
+    def active_gate_count(self, mids):
+        if self.cfg['task']['end_station'] is None:
+            return self.gate_count
+        return 1 + jnp.sum(self.gates[mids] < self.final(mids)[:, None], axis=-1)
+
+    def mixture_start(self, key, mids, required):
+        """Keep each slot's component fixed across retries. Check the actual jittered pose and obstacles."""
+        t, n = self.cfg['task'], len(mids)
+        mix = t['start_mixture']
+        choice, key = jax.random.split(key)
+        u = jax.random.uniform(choice, (n,))
+        lo, hi = jnp.zeros(n), self.final(mids)
+        p = mix['route_start']
+        lo = jnp.where(u < p, t['route_start'], lo)
+        hi = jnp.where(u < p, t['route_start'], hi)
+        for interval in mix['intervals']:
+            member = (u >= p) & (u < p + interval['p'])
+            lo, hi = jnp.where(member, interval['lo'], lo), jnp.where(member, interval['hi'], hi)
+            p += interval['p']
+
+        def draw(carry):
+            i, ok, station, offset, jitter, obstacles = carry
+            ks, ko, ky, kb = jax.random.split(jax.random.fold_in(key, i), 4)
+            s = jax.random.uniform(ks, (n,), minval=lo, maxval=hi)
+            off = jax.random.uniform(ko, (n,), minval=-t['start_lateral'], maxval=t['start_lateral'])
+            dyaw = jax.random.normal(ky, (n,))*t['start_yaw_std']
+            point, yaw, _ = self.bank.route_at(mids, s)
+            pos = point[:, :2]+rotate(jnp.stack([jnp.zeros(n), off], -1), yaw)
+            boxes = self._obstacles(kb, mids, s)
+            valid = self._feasible(dict(mids=mids, obstacles=boxes), pos, wrap(yaw+dyaw))
+            return (i+1, ok | valid, jnp.where(ok, station, s), jnp.where(ok, offset, off),
+                    jnp.where(ok, jitter, dyaw), jnp.where(ok[:, None, None], obstacles, boxes))
+
+        zeros = jnp.zeros(n)
+        init = (0, ~required, zeros, zeros, zeros, jnp.zeros((n, self.cfg['obstacles']['count'], 6)))
+        _, ok, s, off, dyaw, boxes = jax.lax.while_loop(
+            lambda x: (~x[1].all()) & (x[0] < t['start_attempts']), draw, init)
+        def exhausted():
+            def fail():
+                raise ValueError('start_mixture exhausted pose retries within its selected interval')
+            jax.debug.callback(fail)
+        jax.lax.cond(~ok.all(), exhausted, lambda: None)
+        return s, off, dyaw, boxes
+
     def start_station(self, key, mids):
         """Training start: route_start with probability train_route_start_p, else uniform up to the end."""
         t = self.cfg['task']
         k1, k2 = jax.random.split(key)
-        end = jnp.maximum(self.bank.final(mids)-t['train_min_remaining'], t['route_start'])
+        end = jnp.maximum(self.final(mids)-t['train_min_remaining'], t['route_start'])
         s = jax.random.uniform(k1, mids.shape, minval=t['route_start'], maxval=end)
         return jnp.where(jax.random.uniform(k2, mids.shape) < t['train_route_start_p'], t['route_start'], s)
 
@@ -202,7 +267,7 @@ class TrailEnv:
             return jnp.zeros((n, 0, 6))
         k = jax.random.split(key, 3)
         lo = start+o['end_margin'][0]
-        hi = jnp.maximum(self.bank.final(mids)-o['end_margin'][1], lo)
+        hi = jnp.maximum(self.final(mids)-o['end_margin'][1], lo)
         station = lo[:, None]+(hi-lo)[:, None]*(jnp.arange(count)+jax.random.uniform(k[0], (n, count)))/count
         p, yaw, _ = self.bank.route_at(mids, station)
         half = jax.random.uniform(k[1], (n, count), minval=o['half_size'][0], maxval=o['half_size'][1])
@@ -229,7 +294,7 @@ class TrailEnv:
         res, size = self.cfg['bev']['res'], self.cfg['memory']['size']
         return jnp.floor(pos/res)*res-size*res/2
 
-    def _reset(self, key, mids=None, start_s=None, offset=None, observe=True):
+    def _reset(self, key, mids=None, start_s=None, offset=None, observe=True, training_slots=None):
         c, t, n = self.cfg, self.cfg['task'], self.n
         k = jax.random.split(key, 9)
         mids = jnp.arange(n) % self.bank.count if mids is None else mids
@@ -237,6 +302,13 @@ class TrailEnv:
              else jnp.broadcast_to(jnp.asarray(start_s, jnp.float32), (n,)))
         if offset is None:
             offset = jax.random.uniform(k[1], (n,), minval=-t['start_lateral'], maxval=t['start_lateral'])
+        jitter = jax.random.normal(k[4], (n,))*t['start_yaw_std']
+        boxes = self._obstacles(k[7], mids, s)
+        if t['start_mixture'] is not None and (start_s is None or training_slots is not None):
+            required = jnp.ones(n, bool) if training_slots is None else training_slots
+            ms, mo, mj, mb = self.mixture_start(jax.random.fold_in(k[0], 1), mids, required)
+            s, offset, jitter = (jnp.where(required, a, b) for a, b in ((ms, s), (mo, offset), (mj, jitter)))
+            boxes = jnp.where(required[:, None, None], mb, boxes)
         p, yaw, _ = self.bank.route_at(mids, s)
         pos = p[:, :2]+rotate(jnp.stack([jnp.zeros(n), jnp.broadcast_to(offset, (n,))], -1), yaw)
         ranges = [c['sensor'][x] for x in ('height_std', 'dropout_base', 'dropout_distance')]
@@ -244,20 +316,26 @@ class TrailEnv:
                            for kk, (lo, hi) in zip(jax.random.split(k[2], 3), ranges)], -1)
         size, image = c['memory']['size'], c['bev']['size']
         zeros, never = jnp.zeros(n, jnp.int32), jnp.zeros(n, bool)
+        crossed = jnp.sum(s[:, None] >= self.gates[mids], -1).astype(jnp.int32)
+        if t['end_station'] is not None:
+            crossed = jnp.minimum(crossed, self.active_gate_count(mids))
         state = dict(
-            key=k[3], mids=mids, pos=pos, yaw=wrap(yaw+jax.random.normal(k[4], (n,))*t['start_yaw_std']),
+            key=k[3], mids=mids, pos=pos, yaw=wrap(yaw+jitter),
             vel=jnp.zeros((n, 3)), prev=jnp.zeros((n, 3)), queue=jnp.zeros((n, self.delays[1]+1, 3)),
             delay=jax.random.randint(k[5], (n,), self.delays[0], self.delays[1]+1),
             gain=jax.random.uniform(k[6], (n,), minval=c['dynamics']['gain'][0], maxval=c['dynamics']['gain'][1]),
             noise=noise, drift=jnp.zeros((n, 3)), s=s, est_s=s, best_s=s, stuck=zeros, steps=zeros,
-            max_steps=jnp.ceil((self.bank.final(mids)-s)/(t['timeout_speed']*c['timing']['dt'])).astype(jnp.int32),
-            gates=jnp.sum(s[:, None] >= self.bank.gates[mids], -1).astype(jnp.int32),
-            obstacles=self._obstacles(k[7], mids, s), ep_return=jnp.zeros(n), distance=jnp.zeros(n),
+            max_steps=jnp.ceil((self.final(mids)-s)/(t['timeout_speed']*c['timing']['dt'])).astype(jnp.int32),
+            gates=crossed,
+            obstacles=boxes, ep_return=jnp.zeros(n), distance=jnp.zeros(n),
             memory=jnp.zeros((n, size, size, 3)), age=jnp.full((n, size, size), jnp.inf),
             mempos=self.memory_origin(pos),
             obs_queue=jnp.zeros((n, c['memory']['observation_delay']+1, image, image, 6), jnp.uint8),
             first=jnp.ones(n, bool), done=never, arrived=never, failure=zeros, reward=jnp.zeros(n),
             restart=jnp.full((n, 2), jnp.nan))
+        if c['sensor']['version'] == 'v2':
+            state['camera_on'] = jax.random.uniform(jax.random.fold_in(k[2], 1), (n,)) >= c['sensor']['camera_off_probability']
+            state['height_ref'] = jnp.zeros(n)
         if self.odometry:
             state.update(self.odometry_start(k[8], mids, s, pos, state['yaw'], yaw))
         if not observe:
@@ -265,6 +343,37 @@ class TrailEnv:
         state, obs, extra = self._observe(state)
         state['obs_queue'] = jnp.repeat(obs['bev'][:, None], state['obs_queue'].shape[1], axis=1)
         return state, obs, extra
+
+    def _finish_substep(self, mids, hint, pos, proposed, yaw, proposed_yaw, finished):
+        """Stop the opt-in task at its boundary, before testing the footprint.
+
+        A 50 ms tracking substep can overshoot the last supported pose. Bisect
+        the actual motion segment only when a route projection crosses the goal.
+        The accepted finish pose is still checked for support and collision.
+        """
+        target = self.final(mids)
+        near = hint >= target-self.cfg['task']['project_window']
+
+        def clip():
+            station, _ = self.bank.project(mids, proposed, hint, self.window)
+            crossed = near & ~finished & (station >= target)
+
+            def bisect():
+                def halve(_, bounds):
+                    lo, hi = bounds
+                    mid = (lo+hi)*.5
+                    point = pos+mid[:, None]*(proposed-pos)
+                    s, _ = self.bank.project(mids, point, hint, self.window)
+                    return jnp.where(s < target, mid, lo), jnp.where(s < target, hi, mid)
+                _, hi = jax.lax.fori_loop(0, 12, halve, (jnp.zeros_like(target), jnp.ones_like(target)))
+                f = jnp.where(crossed, hi, 1.)
+                return (jnp.where(crossed[:, None], pos+f[:, None]*(proposed-pos), proposed),
+                        jnp.where(crossed, wrap(yaw+f*wrap(proposed_yaw-yaw)), proposed_yaw))
+            point, angle = jax.lax.cond(jnp.any(crossed), bisect, lambda: (proposed, proposed_yaw))
+            return point, angle, finished | crossed
+        point, angle, complete = jax.lax.cond(jnp.any(near & ~finished), clip,
+                                              lambda: (proposed, proposed_yaw, finished))
+        return jnp.where(finished[:, None], pos, point), jnp.where(finished, yaw, angle), complete
 
     def _step(self, state, action):
         c, t, r = self.cfg, self.cfg['task'], self.cfg['reward']
@@ -279,29 +388,39 @@ class TrailEnv:
         slips = jax.random.normal(slipkey, (c['timing']['substeps'], n, 2))*c['dynamics']['slip_std']
 
         def substep(carry, slip):
-            pos, yaw, vel, queue, fall, hit = carry
+            pos, yaw, vel, queue, fall, hit, finished = carry
             new, yaw_new, vel, queue = tracker.substep(pos, yaw, vel, queue, target, speed, state['delay'],
                                                        state['gain'], c)
             scale = jnp.minimum(1., jnp.linalg.norm(vel[:, :2], axis=-1)/c['dynamics']['slip_full_speed'])
-            pos = new+rotate(slip*scale[:, None], yaw)*dt
+            proposed = new+rotate(slip*scale[:, None], yaw)*dt
+            if t['end_station'] is None:
+                pos = proposed
+            else:
+                pos, yaw_new, finished = self._finish_substep(mids, state['s'], pos, proposed, yaw, yaw_new, finished)
+            if t['end_station'] is not None:
+                vel = jnp.where(carry[-1][:, None], carry[2], vel)
+                queue = jnp.where(carry[-1][:, None, None], carry[3], queue)
             data = self.truth(state, pos[:, None]+rotate(jnp.asarray(self.foot)[None], yaw_new))
             fall |= jnp.any(data[..., 2] > c['robot']['support_limit'], -1)
             hit |= jnp.any(data[..., 5] < 0, -1)
-            return (pos, yaw_new, vel, queue, fall, hit), None
-        init = (state['pos'], state['yaw'], state['vel'], state['queue'], jnp.zeros(n, bool), jnp.zeros(n, bool))
-        (pos, yaw, vel, queue, fall, hit), _ = jax.lax.scan(substep, init, slips)
+            return (pos, yaw_new, vel, queue, fall, hit, finished), None
+        init = (state['pos'], state['yaw'], state['vel'], state['queue'],
+                jnp.zeros(n, bool), jnp.zeros(n, bool), jnp.zeros(n, bool))
+        (pos, yaw, vel, queue, fall, hit, finished), _ = jax.lax.scan(substep, init, slips)
         s, lateral = self.bank.project(mids, pos, state['s'], self.window)
+        if t['end_station'] is not None:
+            s = jnp.where(finished, self.final(mids), s)
         progress = jnp.clip(s-state['s'], -r['progress_clip'], r['progress_clip'])
         # Ordered gate crossing: centre inside the route width while moving past the next gate.
-        gate_s = self.bank.gates[mids, jnp.minimum(state['gates'], self.gate_count-1)]
+        gate_s = self.gates[mids, jnp.minimum(state['gates'], self.gate_count-1)]
         _, _, width = self.bank.route_at(mids, s)
-        crossing = (state['s'] < gate_s) & (s >= gate_s) & (jnp.abs(lateral) < width/2) & (state['gates'] < self.gate_count)
+        crossing = (state['s'] < gate_s) & (s >= gate_s) & (jnp.abs(lateral) < width/2) & (state['gates'] < self.active_gate_count(mids))
         stuck = jnp.where(s > state['best_s']+t['stuck_progress'], 0, state['stuck']+1)
         steps = state['steps']+1
         wrong = (jnp.abs(lateral) > width/2+t['off_route_margin']) | (s < state['best_s']-t['max_reverse'])
         timeout = (steps >= state['max_steps']) | (stuck*c['timing']['dt'] >= t['stuck_seconds'])
         failure = jnp.where(fall, 1, jnp.where(hit, 2, jnp.where(wrong, 3, jnp.where(timeout, 5, 0)))).astype(jnp.int32)
-        arrived = (s >= self.bank.final(mids)) & (failure == 0)
+        arrived = (s >= self.final(mids)) & (failure == 0)
         centre = self.truth(state, pos)
         near = jnp.maximum(0, r['clearance_distance']-jnp.minimum(-centre[:, 2], centre[:, 5]))
         reward = (r['progress']*progress+r['gate']*crossing*(failure == 0)-r['time']
@@ -325,8 +444,10 @@ class TrailEnv:
             start = jnp.where(restart, current['restart'][:, 0], self.start_station(k1, mids))
             offset = jnp.where(restart, current['restart'][:, 1],
                                jax.random.uniform(k2, (n,), minval=-t['start_lateral'], maxval=t['start_lateral']))
-            fresh = self._reset(k3, mids, start, offset, observe=False)
+            fresh = self._reset(k3, mids, start, offset, observe=False, training_slots=resetting & ~restart)
             fresh['obstacles'] = jnp.where(restart[:, None, None], current['obstacles'], fresh['obstacles'])
+            if c['sensor']['version'] == 'v2':
+                fresh['camera_on'] = jnp.where(restart, current['camera_on'], fresh['camera_on'])
             if self.odometry:
                 # An assist restart continues the odometry, which also tracks the assist displacement; with
                 # dead-reckoning localisation the estimated station (projection hint) continues as well.
@@ -364,9 +485,19 @@ class TrailEnv:
         batch = jnp.arange(n)[:, None, None]
         memory = state['memory'][batch, old[..., 0], old[..., 1]]
         age = jnp.where(inside, state['age'][batch, old[..., 0], old[..., 1]]+c['timing']['dt'], jnp.inf)
-        znow = self.bank.sample(mids, state['pos'], 0, linear=True)
         ij = jnp.clip(jnp.floor((world-origin[:, None, None])/res).astype(jnp.int32), 0, size-1)
         fresh = jnp.zeros((n, size, size), bool).at[batch, ij[..., 0], ij[..., 1]].max(keep)
+        if c['sensor']['version'] == 'v2':
+            # Register vertical origin by overlap with measured recent memory.
+            # Disjoint frames retain the last estimate until overlap resumes.
+            overlap = keep & (age[batch, ij[..., 0], ij[..., 1]] < m['seconds'])
+            dz = memory[batch, ij[..., 0], ij[..., 1], 0]-measured[..., 0]
+            count = overlap.sum((1, 2))
+            znow = jnp.where(count, jnp.where(overlap, dz, 0.).sum((1, 2))/jnp.maximum(count, 1),
+                             state['height_ref'])
+            state['height_ref'] = znow
+        else:
+            znow = self.bank.sample(mids, state['pos'], 0, linear=True)
         absolute = measured.at[..., 0].add(znow[:, None, None])
         updates = jnp.full_like(memory, -jnp.inf).at[batch, ij[..., 0], ij[..., 1]].max(
             jnp.where(keep[..., None], absolute, -jnp.inf))
@@ -380,7 +511,7 @@ class TrailEnv:
                      corridor=self.bank.sample(mids, world, 3, linear=True) < 0,
                      age=jnp.clip(local_age/m['seconds'], 0, 1),
                      waypoints=rotate(route[..., :2]-estpos[:, None], -estyaw)/t['waypoint_scale'],
-                     progress=state['gates']/self.gate_count,
+                     progress=state['gates']/self.active_gate_count(mids),
                      velocity=state['vel']+jax.random.normal(speedkey, (n, 3))*c['sensor']['velocity_std'])
         if c['odometry_inputs']:
             parts['odometry'] = self.odometry_reading(jax.random.fold_in(speedkey, 1), state)
@@ -392,7 +523,8 @@ class TrailEnv:
         _, route_yaw, _ = self.bank.route_at(mids, true_s)
         body = state['pos'][:, None, None]+rotate(self.local[None], state['yaw'])
         extra = dict(occluded=~seen, clean_trav=trav, route_mask=self.bank.sample(mids, body, 3, linear=True) < 0,
-                     progress=true_s/self.bank.arcs[mids, self.bank.lengths[mids]-1],
+                     progress=(true_s/self.bank.arcs[mids, self.bank.lengths[mids]-1] if t['end_station'] is None
+                               else jnp.minimum(true_s/self.final(mids), 1.)),
                      heading_error=wrap(route_yaw-state['yaw']), lateral=lateral)
         if c['priv_route']:
             # Privileged decoder targets from the true route (the encoder never sees priv_* keys).

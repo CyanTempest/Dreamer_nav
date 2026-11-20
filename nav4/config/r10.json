@@ -1,0 +1,29 @@
+{
+  "env": {
+    "sensor.version": "v2",
+    "sensor.camera_off_probability": 0.3,
+    "task.end_station": 721.4290161132812,
+    "task.start_mixture": {
+      "route_start": 0.1,
+      "intervals": [
+        {
+          "p": 0.25,
+          "lo": 0.0,
+          "hi": 60.0
+        },
+        {
+          "p": 0.2,
+          "lo": 640.0,
+          "hi": 721.4290161132812
+        }
+      ]
+    }
+  },
+  "replay": {
+    "capacity": 1680000,
+    "chunksize": 16,
+    "compress": false,
+    "batched": true
+  },
+  "save_minutes": 60
+}

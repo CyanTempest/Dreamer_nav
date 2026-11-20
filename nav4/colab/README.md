@@ -24,3 +24,15 @@ python3 nav4/colab/launch.py --map data/trail_a_v9_frozen --name v9-s0 \
 VM 入口另支持 `--save-minutes`。10 分钟验收使用 60 分钟保存间隔，最后一次评估和完整检查点在训练计时结束后完成。`metrics.jsonl` 中的 `allocator.peak_bytes_in_use` 表示 XLA 活跃分配峰值，`gpu.csv` 中的显存读数包含预留池。
 
 在 `nav4.train_dreamer` 上使用 `--set profile_steps=true` 可记录逐批量步的同步耗时。每条 `profile` 的 `seconds` 为前台各阶段的秒数，`background_sample` 为同期预取线程的采样耗时，两者有重叠。`benchmark_only=true` 供一次性标定使用，会跳过最后一次检查点。
+
+### R10 训练
+
+在服务器项目根运行下列命令。R10 启用 v2 感知、可行出生混合、721.429016 m 终点、168 万容量的未压缩回放及 60 分钟完整存档。每个训练回合有 30% 概率关闭相机；周期评估从 2 m 出发且启用相机。训练器先应用 R10 预设，再应用显式覆盖。此例沿用上一轮的模型尺寸、环境数和批量，从新权重开始。
+
+```bash
+python3 nav4/colab/launch.py --r10 --fast-a100 --map data/trail_a_v9_frozen \
+  --name v9_r10_50m_s0 --model size50m --envs 1024 --batch 64 --seed 0 \
+  --seconds 21600 --eval-minutes 60 --budget 70
+```
+
+打包时同时传送服务器工作区的 env.py、sensor.py、evaluate.py 及 env.json/r10.json。完整回放留在 VM。若希望接着已有 agent 权重优化，可显式传入上一轮的 `--weights`。

@@ -2,12 +2,13 @@
 # VM entry point. A short preflight uses a separate logdir and fresh replay.
 set -euo pipefail
 cd /content/nav
-map= logdir= seconds= envs= model= batch= seed= minutes= preflight=1 fast=0 save_minutes= weights=
+map= logdir= seconds= envs= model= batch= seed= minutes= preflight=1 r10=0 fast=0 save_minutes= weights=
 while (($#)); do
   case "$1" in
     --map) map=$2;; --logdir) logdir=$2;; --seconds) seconds=$2;;
     --envs) envs=$2;; --model) model=$2;; --batch) batch=$2;; --seed) seed=$2;;
     --save-minutes) save_minutes=$2;; --eval-minutes) minutes=$2;; --weights) weights=$2;;
+    --r10) r10=1; shift; continue;;
     --fast-a100) fast=1; shift; continue;;
     --skip-preflight) preflight=0; shift; continue;;
     *) echo "Unknown option $1" >&2; exit 2;;
@@ -22,6 +23,7 @@ mkdir -p "$logdir"
 export PYTHONUNBUFFERED=1 JAX_PLATFORMS=cuda JAX_COMPILATION_CACHE_DIR=/content/nav4-jax-cache
 export XLA_FLAGS='--xla_gpu_autotune_level=1 --xla_gpu_deterministic_ops=true'
 args=()
+if (( r10 )); then args+=(--r10); fi
 if [[ -n "$envs" ]]; then args+=(--envs "$envs"); fi
 if [[ -n "$weights" ]]; then args+=(--init-checkpoint "$weights"); fi
 if [[ "$map" == /content/nav/* ]]; then map=${map#/content/nav/}; fi

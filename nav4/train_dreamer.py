@@ -59,6 +59,13 @@ def set_key(cfg, key, value):
     node[last] = value
 
 
+def apply_r10(cfg):
+    preset = json.loads((ROOT/'nav4/config/r10.json').read_text())
+    cfg['env'].update(preset['env'])
+    cfg['replay'].update(preset['replay'])
+    cfg['save_minutes'] = preset['save_minutes']
+
+
 def nvidia_smi(args):
     return subprocess.run(['nvidia-smi', *args], capture_output=True, text=True, timeout=60, check=True).stdout
 
@@ -214,6 +221,7 @@ class Episodes:
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument('--r10', action='store_true', help='apply the v9 R10 training preset')
     p.add_argument('--config', default=str(ROOT/'nav4/config/train.json'), help='train config (ignored with --resume)')
     p.add_argument('--logdir', required=True)
     p.add_argument('--seconds', type=float, required=True, help='training budget (s) from the first update, all resumes')
@@ -228,7 +236,7 @@ def main(argv=None):
     if a.resume:
         if not (logdir/'ckpt'/'latest').exists():
             p.error(f'--resume: no official checkpoint in {logdir}/ckpt')
-        if a.set or a.env:
+        if a.set or a.env or a.r10:
             p.error('--resume continues with the saved config; --set/--env are not accepted')
         cfg = json.loads((logdir/'config.json').read_text())['train']
         if a.envs and a.envs != cfg['envs']:
@@ -237,6 +245,8 @@ def main(argv=None):
         if (logdir/'ckpt').exists():
             p.error(f'{logdir} already holds a checkpoint: use --resume or a new --logdir')
         cfg = json.loads(Path(a.config).read_text())
+        if a.r10:
+            apply_r10(cfg)
         for key, value in overrides(a.set).items():
             set_key(cfg, key, value)
         cfg['env'] = {**cfg['env'], **overrides(a.env)}
@@ -322,7 +332,7 @@ def main(argv=None):
         del payload
     decoder_keys = list(policy.agent.model.dec.obs_space)
     e = cfg['eval']
-    eval_env = TrailEnv(bank, e['traverses'], cfg['env'])
+    eval_env = TrailEnv(bank, e['traverses'], {**cfg['env'], 'task.start_mixture': None, 'sensor.camera_off_probability': 0.})
     process_begin = time.monotonic()
     context = SimpleNamespace(begin=None, elapsed=0., stop=False, exit_code=0, cp=None, ratio=None, driver=None,
                               updates=0, train_carry=None, pending_carry=None, evals=0,
@@ -498,7 +508,7 @@ def main(argv=None):
                     train_seconds=train_seconds(), eval_seconds=time.time()-begin, loop_steps=loop_steps, budget=budget,
                     action=e['action'], assist=e['assist'], seed=e['seed'],
                     summary={k: v for k, v in summary.items() if k != 'per_map'},
-                    rows=[{k: r[k] for k in ('slot', 'success', 'arrived', 'truncated', 'assists', 'final_station',
+                    rows=[{k: r[k] for k in ('slot', 'success', 'arrived', 'truncated', 'assists', 'final_target', 'final_station',
                                              'steps', 'distance', 'failures')} for r in rows]))
         print('EVAL', json.dumps(clean(dict(index=context.evals, updates=context.updates, **{
             k: summary.get(k) for k in ('strict_completions', 'completions_within_limit', 'assists_per_100m',
