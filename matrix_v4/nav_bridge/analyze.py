@@ -10,16 +10,14 @@ import matplotlib.pyplot as plt
 
 def observations(out):
     paths=sorted(out.glob('leg-*/steps-*.npz'))
-    required=['pose','station','vel','epoch','sim','action','state','assist','lidar_age','lateral','clearance']
+    required=['pose','station','vel','epoch','sim','action','state','assist','lidar_age','lateral','clearance','bev']
     chunks={k:[] for k in required}
     by_leg=[]
-    boundaries=[]
     for p in paths:
         with np.load(p) as z:
             for k in required: chunks[k].append(z[k])
-            boundaries.append(len(z['epoch']))
             by_leg.extend([p.parent.name]*len(z['epoch']))
-    return {k:np.concatenate(v) for k,v in chunks.items()}, np.array(by_leg), paths,np.cumsum([0,*boundaries])
+    return {k:np.concatenate(v) for k,v in chunks.items()}, np.array(by_leg)
 
 def image(bev):
     height=bev[...,0]/255.
@@ -29,7 +27,7 @@ def image(bev):
     return np.clip(rgb[::-1,::-1],0,1)
 
 def main(out,baseline,assembly):
-    data,leg,paths,bounds=observations(out)
+    data,leg=observations(out)
     ref=np.load(baseline)
     refpos=ref['pos']; refbev=ref['bev']; refs=ref['s']; refyaw=ref['yaw']
     shift=np.asarray(json.loads(assembly.read_text())['shared_shift_m'])
@@ -41,8 +39,7 @@ def main(out,baseline,assembly):
     for row,target in enumerate(q):
         i=int(np.argmin(abs(s-target)))
         j=int(np.argmin(np.linalg.norm(refpos-world[i],axis=1)))
-        p=int(np.searchsorted(bounds[1:],i,side='right'))
-        with np.load(paths[p]) as z: mx=z['bev'][i-bounds[p]]
+        mx=data['bev'][i]
         sim=refbev[j]
         common=(mx[...,3]==0)&(sim[...,3]==0)
         x,y,z,w=data['pose'][i,3:]
