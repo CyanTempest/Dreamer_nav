@@ -1,0 +1,36 @@
+{
+  "status": "verified_from_packaged_entry_point",
+  "checkpoint_sha256": "d5eb816dafc4301f4be1ef29492442ee4a2a2c117d99f2e2cb0becd41aee3285",
+  "setup": "separate_checkout_with_local_assets_and_preinstalled_dependencies",
+  "evaluation_only": true,
+  "checks": [
+    {
+      "profile": "smoke",
+      "start_m": 65.0,
+      "length_m": 3.0,
+      "seed": 6001,
+      "depth_noise": false,
+      "action_mode": "mean",
+      "success": true,
+      "progress_m": 2.8885026930000066,
+      "endpoint_distance_m": 0.16337366525529418,
+      "physics_steps": 3800,
+      "saved_states": 38,
+      "sim_time_s": 7.600000000001206
+    },
+    {
+      "profile": "course",
+      "start_m": 0.0,
+      "length_m": 100.0,
+      "seed": 6001,
+      "depth_noise": true,
+      "action_mode": "mean",
+      "success": true,
+      "progress_m": 99.85291930873453,
+      "endpoint_distance_m": 0.16114106399585246,
+      "physics_steps": 196200,
+      "saved_states": 1962,
+      "sim_time_s": 392.40000000116976
+    }
+  ]
+}

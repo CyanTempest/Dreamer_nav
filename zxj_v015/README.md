@@ -66,6 +66,14 @@ third_party/runtimes/MATRiX_Robot_MC-v0.6.6/
   build/export/  deps/  local_deps/
 ```
 
+已有本地场景时可用软链接直接读取同一份文件，节省磁盘空间。官方点云和 3DGS 是场景构建的输入，评测读取的是准备好的 v009 碰撞场景。
+
+```bash
+mkdir -p assets/terrains/competition_100m assets/robots/m1/mujoco
+ln -s /absolute/path/to/prepared-v009 assets/terrains/competition_100m/v009
+ln -s /absolute/path/to/prepared-m1-v001 assets/robots/m1/mujoco/v001
+```
+
 ```bash
 (
   cd third_party/runtimes/MATRiX_Robot_MC-v0.6.6
@@ -98,4 +106,4 @@ bash scripts/reproduce_v015.sh suite outputs/formal-suite
 
 从 v014 重跑补训还需自行提供 `replay_inputs/v014/` 中的起始检查点和对应配置、`replay_inputs/v015/` 下与原划分一致的回放清单和序列，以及其声明的父场景。训练及验证回放实测约 1 GiB。输入 TOML 中的序列长度由补训命令的 `--batch-length 64` 覆盖，训练脚本设置随机种子 31。使用 [补训命令参数](configs/v015_training_parameters.json)中的 `command_argv`，把输出放到新目录。最终权重可直接用于上面的评测命令。
 
-发布前在单独检出目录使用本机已安装的依赖和获准使用的资产执行了 `check --video` 与 `smoke`。短程回合成功，记录进度 2.889/3.0 米，距目标 0.163 米，未记录禁止碰撞。
+交付验证使用独立检出目录、本机已安装的依赖和已有赛道资产。3 米短程和带噪 100 米回合均通过。全程回合记录进度 99.853 米，距目标 0.161 米。[交付包复跑记录](evidence/package_reproduction.json)
