@@ -1,0 +1,8 @@
+/assets/
+/third_party/
+/build/
+/outputs/
+/replay_inputs/
+/toolchains/
+!/weights/v015/final/agent.pkl
+/.venvs

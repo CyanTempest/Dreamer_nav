@@ -1,0 +1,154 @@
+schema_version = 1
+seed = 13
+
+[environment]
+backend = "mujoco_m1"
+factory = "atec_nav.sim.spatial_mujoco_env:make_env"
+route_projection = "metric_heading_v1"
+robot_path = "assets/robots/m1/mujoco/v001"
+terrain_path = "assets/terrains/competition_100m/v009"
+episode_seconds = 700.0
+locomotion_controller = "matrix_stair"
+terrain_aware_reset = true
+validate_reset_stability = true
+control_hz = 5.0
+physics_hz = 500.0
+route_length_m = 100.0
+lookahead_m = 2.0
+random_start = false
+stall_timeout_s = 20.0
+goal_source = "sim_waypoint"
+reset_lateral_jitter_m = 0.03
+reset_yaw_jitter_rad = 0.03
+episode_log = "outputs/train/matrix_speed05_v015/episodes.jsonl"
+
+[observations]
+height = 64
+width = 64
+depth_channels = 3
+proprio_size = 64
+goal_size = 3
+min_depth_m = 0.2
+max_depth_m = 10.0
+schema = "physical_v2"
+near_max_depth_m = 2.0
+
+[actions]
+vx_mps = 0.5
+vy_mps = 0.0
+wz_radps = 0.3
+slew_rates = [ 0.5, 1.0,]
+
+[noise]
+enabled = false
+sigma_base_m = 0.01
+sigma_depth_squared = 0.001
+dropout_probability = 0.03
+outlier_probability = 0.01
+patch_dropout_probability = 0.1
+patch_size = 8
+scale_jitter = 0.05
+latency_frames = 1
+
+[reward]
+progress_weight = 10.0
+cross_track_weight = 1.5
+success_bonus = 30.0
+collision_penalty = 20.0
+fall_penalty = 20.0
+time_cost_per_second = 0.02
+action_change_weight = 0.001
+signed_route_progress = true
+goal_bounded_progress = true
+clearance_weight = 2.0
+clearance_margin_m = 0.04
+
+[dreamer]
+learning_rate = 4e-5
+policy_minstd = 0.03
+policy_maxstd = 0.35
+select_training_candidate = true
+candidate_window = 10
+candidate_min_successes = 1
+demo_path = "replay_inputs/v015"
+replay_context = 0
+upstream_path = "third_party/dreamerv3"
+upstream_commit = "e01491fad6434b2245a3b8ca201dd7faedcc458c"
+model_config = "size1m"
+platform = "cuda"
+compute_dtype = "float32"
+batch_size = 4
+batch_length = 32
+replay_size = 40000
+train_ratio = 128.0
+steps = 3000
+envs = 1
+logdir = "outputs/train/matrix_speed05_v015"
+report = false
+log_every = 30
+save_every = 120
+report_every = 999999
+
+[curriculum]
+enabled = false
+successes_required = 5
+[[curriculum.stages]]
+name = "flat"
+start_s = 65.0
+length_m = 3.0
+steps = 4000
+demo_stages = [ "flat",]
+collect = false
+noise_enabled = false
+required_successes = 9
+
+[[curriculum.stages]]
+name = "curve"
+start_s = 55.0
+length_m = 3.0
+steps = 6000
+demo_stages = [ "curve",]
+collect = false
+noise_enabled = false
+required_successes = 9
+
+[experiment]
+scope = "speed_0p5_policy_approach_teacher_recovery_finetune"
+evaluation_seed_start = 6001
+
+[recording]
+enabled = false
+python = ".venvs/scene/bin/python"
+cuda_home = "/usr/local/cuda"
+
+[observations.waypoint_reference]
+lookahead_m = 0.8
+lateral_offset_m = 0.06
+reference_until_m = 4.0
+reference_fade_m = 1.0
+after_lookahead_m = 1.2
+[[observations.waypoint_reference.reference_sections]]
+start_m = 38.0
+end_m = 47.0
+fade_m = 1.5
+lookahead_m = 1.2
+lateral_offset_m = 0.2
+
+
+[observations.stagnation_age]
+scale_s = 10.0
+clip_s = 20.0
+
+[observations.spatial_waypoint_reference]
+kind = "local_spatial_v1"
+window_m = [35.0, 38.0, 48.5, 51.5]
+sigma_m = 0.75
+spacing_m = 0.02
+search_m = 3.0
+
+[environment.speed_transport]
+kind = "high_speed_blend_v2"
+reference_mps = 0.45
+maximum_mps = 0.5
+maximum_gain = 2.0
+transport_slew_mps2 = 0.5

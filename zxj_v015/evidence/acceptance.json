@@ -1,0 +1,2092 @@
+{
+  "source_status": "formal_acceptance_verified",
+  "checkpoint_sha256": "d5eb816dafc4301f4be1ef29492442ee4a2a2c117d99f2e2cb0becd41aee3285",
+  "original_acceptance_sha256": "c9682045f8a938f9bab453816843f807970f089b6d32d9d4d0402b3d048af46f",
+  "original_technical_audit_sha256": "d5b152e177a1eb7ca29e2203fa48fede2ce425ee2b66dce1498bd6502f0364be",
+  "original_visual_review_sha256": "f63060b23e766a412b666ae5a00f7c1127c40a83bfdb87e18b87ee32289e60cd",
+  "stages": 10,
+  "trials": 200,
+  "successes": 194,
+  "stage_successes": {
+    "flat": {
+      "mean": 10,
+      "sample": 10
+    },
+    "curve": {
+      "mean": 10,
+      "sample": 10
+    },
+    "stairs3": {
+      "mean": 10,
+      "sample": 10
+    },
+    "stairs6": {
+      "mean": 10,
+      "sample": 10
+    },
+    "stairs10": {
+      "mean": 10,
+      "sample": 9
+    },
+    "stairs15": {
+      "mean": 10,
+      "sample": 9
+    },
+    "stairs20": {
+      "mean": 10,
+      "sample": 9
+    },
+    "course50": {
+      "mean": 10,
+      "sample": 9
+    },
+    "course100": {
+      "mean": 10,
+      "sample": 10
+    },
+    "noisy100": {
+      "mean": 10,
+      "sample": 8
+    }
+  },
+  "physics_steps": 12963456,
+  "physics_checks_hz": 500.0,
+  "control_hz": 5.0,
+  "navigation_video": {
+    "name": "dreamer_v015_noisy_mean_3dgs.mp4",
+    "sha256": "be95bb683333ba15a81bdfa62ea70a2ce2dfcf7a6583775c3373ed38afc95c4b",
+    "bytes": 115890801,
+    "frame_index_sha256": "73ec99cd135aba67135f3267aa7e03d6c037e2a733a4f70e168fc2be91c5f718",
+    "frames": 1996,
+    "fps": 5.0,
+    "resolution": [
+      1280,
+      720
+    ],
+    "overlay_verified_frames": 1996,
+    "manually_reviewed_frames": 7,
+    "source_stage": "noisy100",
+    "source_mode": "mean",
+    "source_seed": 6001,
+    "source_run_metrics": {
+      "progress_m": 99.8677183308566,
+      "endpoint_distance_m": 0.14550906806578173,
+      "sim_time_s": 399.2000000012022,
+      "physics_steps": 199600
+    },
+    "recorded_physical_states_sha256": "7c6d8e3720e0290c1e1df9a5e2e78df29c8ecc10dd152c3a0137a9fe8216baca",
+    "overlay_details": {
+      "maximum_core_pixel_disagreements": 1,
+      "maximum_allowed_core_pixel_disagreements": 2,
+      "checked_overlay_values": [
+        "simulation time",
+        "route progress",
+        "horizontal speed",
+        "arrival status"
+      ]
+    }
+  },
+  "trials_by_seed": [
+    {
+      "stage": "flat",
+      "mode": "mean",
+      "seed": 6001,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8715601623349443,
+      "endpoint_distance_m": 0.18385020602524613,
+      "physics_steps": 3800
+    },
+    {
+      "stage": "flat",
+      "mode": "mean",
+      "seed": 6002,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8612128594325412,
+      "endpoint_distance_m": 0.22333644403739167,
+      "physics_steps": 3500
+    },
+    {
+      "stage": "flat",
+      "mode": "mean",
+      "seed": 6003,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.87177527381985,
+      "endpoint_distance_m": 0.20282132017889573,
+      "physics_steps": 3600
+    },
+    {
+      "stage": "flat",
+      "mode": "mean",
+      "seed": 6004,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8869288773036175,
+      "endpoint_distance_m": 0.20050906183444472,
+      "physics_steps": 3600
+    },
+    {
+      "stage": "flat",
+      "mode": "mean",
+      "seed": 6005,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.890360009927562,
+      "endpoint_distance_m": 0.1397931536445153,
+      "physics_steps": 3800
+    },
+    {
+      "stage": "flat",
+      "mode": "mean",
+      "seed": 6006,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8645119109275043,
+      "endpoint_distance_m": 0.2115039987336814,
+      "physics_steps": 3500
+    },
+    {
+      "stage": "flat",
+      "mode": "mean",
+      "seed": 6007,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8885026930000066,
+      "endpoint_distance_m": 0.18622185480834505,
+      "physics_steps": 3800
+    },
+    {
+      "stage": "flat",
+      "mode": "mean",
+      "seed": 6008,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8885026930000066,
+      "endpoint_distance_m": 0.19076816941510902,
+      "physics_steps": 3700
+    },
+    {
+      "stage": "flat",
+      "mode": "mean",
+      "seed": 6009,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8885026930000066,
+      "endpoint_distance_m": 0.1731021280234951,
+      "physics_steps": 3700
+    },
+    {
+      "stage": "flat",
+      "mode": "mean",
+      "seed": 6010,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8672322006120794,
+      "endpoint_distance_m": 0.18187111393865948,
+      "physics_steps": 3600
+    },
+    {
+      "stage": "flat",
+      "mode": "sample",
+      "seed": 6001,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.9119659557301816,
+      "endpoint_distance_m": 0.1625356985187378,
+      "physics_steps": 3700
+    },
+    {
+      "stage": "flat",
+      "mode": "sample",
+      "seed": 6002,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.875636407368347,
+      "endpoint_distance_m": 0.20171578020313996,
+      "physics_steps": 3800
+    },
+    {
+      "stage": "flat",
+      "mode": "sample",
+      "seed": 6003,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8880465364250796,
+      "endpoint_distance_m": 0.1880894988194459,
+      "physics_steps": 3700
+    },
+    {
+      "stage": "flat",
+      "mode": "sample",
+      "seed": 6004,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.896608124003407,
+      "endpoint_distance_m": 0.1757650739290045,
+      "physics_steps": 3700
+    },
+    {
+      "stage": "flat",
+      "mode": "sample",
+      "seed": 6005,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.922034891467618,
+      "endpoint_distance_m": 0.1248159643272246,
+      "physics_steps": 3900
+    },
+    {
+      "stage": "flat",
+      "mode": "sample",
+      "seed": 6006,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.90434344782237,
+      "endpoint_distance_m": 0.1586267223176026,
+      "physics_steps": 3700
+    },
+    {
+      "stage": "flat",
+      "mode": "sample",
+      "seed": 6007,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8885026930000066,
+      "endpoint_distance_m": 0.19554989850019192,
+      "physics_steps": 3600
+    },
+    {
+      "stage": "flat",
+      "mode": "sample",
+      "seed": 6008,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8639520959465727,
+      "endpoint_distance_m": 0.20584229717223107,
+      "physics_steps": 3700
+    },
+    {
+      "stage": "flat",
+      "mode": "sample",
+      "seed": 6009,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8885026930000066,
+      "endpoint_distance_m": 0.16088514176369104,
+      "physics_steps": 3700
+    },
+    {
+      "stage": "flat",
+      "mode": "sample",
+      "seed": 6010,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.863719618244488,
+      "endpoint_distance_m": 0.16962536580530146,
+      "physics_steps": 4000
+    },
+    {
+      "stage": "curve",
+      "mode": "mean",
+      "seed": 6001,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8741384172019053,
+      "endpoint_distance_m": 0.13324098785348762,
+      "physics_steps": 6800
+    },
+    {
+      "stage": "curve",
+      "mode": "mean",
+      "seed": 6002,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8542492873274696,
+      "endpoint_distance_m": 0.15960410604768802,
+      "physics_steps": 6900
+    },
+    {
+      "stage": "curve",
+      "mode": "mean",
+      "seed": 6003,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.885220138090226,
+      "endpoint_distance_m": 0.12745643494443304,
+      "physics_steps": 6900
+    },
+    {
+      "stage": "curve",
+      "mode": "mean",
+      "seed": 6004,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.864335199663522,
+      "endpoint_distance_m": 0.14840702127025338,
+      "physics_steps": 6900
+    },
+    {
+      "stage": "curve",
+      "mode": "mean",
+      "seed": 6005,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8683379871262815,
+      "endpoint_distance_m": 0.15100189355527935,
+      "physics_steps": 6800
+    },
+    {
+      "stage": "curve",
+      "mode": "mean",
+      "seed": 6006,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8802037067293895,
+      "endpoint_distance_m": 0.14209471341782728,
+      "physics_steps": 6900
+    },
+    {
+      "stage": "curve",
+      "mode": "mean",
+      "seed": 6007,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8667551086345853,
+      "endpoint_distance_m": 0.14815265690690899,
+      "physics_steps": 6800
+    },
+    {
+      "stage": "curve",
+      "mode": "mean",
+      "seed": 6008,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.859747173641715,
+      "endpoint_distance_m": 0.15078950956645504,
+      "physics_steps": 6800
+    },
+    {
+      "stage": "curve",
+      "mode": "mean",
+      "seed": 6009,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8514370518211862,
+      "endpoint_distance_m": 0.169164468398881,
+      "physics_steps": 6800
+    },
+    {
+      "stage": "curve",
+      "mode": "mean",
+      "seed": 6010,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8593181185719274,
+      "endpoint_distance_m": 0.15228485023460364,
+      "physics_steps": 6800
+    },
+    {
+      "stage": "curve",
+      "mode": "sample",
+      "seed": 6001,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8521749698581544,
+      "endpoint_distance_m": 0.16329290074276223,
+      "physics_steps": 6800
+    },
+    {
+      "stage": "curve",
+      "mode": "sample",
+      "seed": 6002,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8626878462662972,
+      "endpoint_distance_m": 0.15050449543100583,
+      "physics_steps": 6900
+    },
+    {
+      "stage": "curve",
+      "mode": "sample",
+      "seed": 6003,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8816166906389142,
+      "endpoint_distance_m": 0.1263960594240882,
+      "physics_steps": 6800
+    },
+    {
+      "stage": "curve",
+      "mode": "sample",
+      "seed": 6004,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.88859167809359,
+      "endpoint_distance_m": 0.12833660735176505,
+      "physics_steps": 7000
+    },
+    {
+      "stage": "curve",
+      "mode": "sample",
+      "seed": 6005,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8509780268195684,
+      "endpoint_distance_m": 0.16301338160532072,
+      "physics_steps": 6700
+    },
+    {
+      "stage": "curve",
+      "mode": "sample",
+      "seed": 6006,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.869911658716717,
+      "endpoint_distance_m": 0.13678211432096182,
+      "physics_steps": 6700
+    },
+    {
+      "stage": "curve",
+      "mode": "sample",
+      "seed": 6007,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8836410372961083,
+      "endpoint_distance_m": 0.12880638248851203,
+      "physics_steps": 6800
+    },
+    {
+      "stage": "curve",
+      "mode": "sample",
+      "seed": 6008,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8830578402442626,
+      "endpoint_distance_m": 0.13035239456277514,
+      "physics_steps": 6900
+    },
+    {
+      "stage": "curve",
+      "mode": "sample",
+      "seed": 6009,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.861374991269251,
+      "endpoint_distance_m": 0.1569735219129273,
+      "physics_steps": 6800
+    },
+    {
+      "stage": "curve",
+      "mode": "sample",
+      "seed": 6010,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8577890030773574,
+      "endpoint_distance_m": 0.15311448460230126,
+      "physics_steps": 6800
+    },
+    {
+      "stage": "stairs3",
+      "mode": "mean",
+      "seed": 6001,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.861173050221253,
+      "endpoint_distance_m": 0.1749260034993044,
+      "physics_steps": 7500
+    },
+    {
+      "stage": "stairs3",
+      "mode": "mean",
+      "seed": 6002,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8678975409974212,
+      "endpoint_distance_m": 0.1623780579240755,
+      "physics_steps": 7300
+    },
+    {
+      "stage": "stairs3",
+      "mode": "mean",
+      "seed": 6003,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8622927133314144,
+      "endpoint_distance_m": 0.16189531603124924,
+      "physics_steps": 7700
+    },
+    {
+      "stage": "stairs3",
+      "mode": "mean",
+      "seed": 6004,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8827386864947258,
+      "endpoint_distance_m": 0.14825569253021875,
+      "physics_steps": 7100
+    },
+    {
+      "stage": "stairs3",
+      "mode": "mean",
+      "seed": 6005,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8569618189089634,
+      "endpoint_distance_m": 0.16157034737459677,
+      "physics_steps": 7100
+    },
+    {
+      "stage": "stairs3",
+      "mode": "mean",
+      "seed": 6006,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8861697654220966,
+      "endpoint_distance_m": 0.13649099595970857,
+      "physics_steps": 7400
+    },
+    {
+      "stage": "stairs3",
+      "mode": "mean",
+      "seed": 6007,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8639810339908345,
+      "endpoint_distance_m": 0.17073231279273532,
+      "physics_steps": 7300
+    },
+    {
+      "stage": "stairs3",
+      "mode": "mean",
+      "seed": 6008,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8889473115022692,
+      "endpoint_distance_m": 0.148170288192197,
+      "physics_steps": 7200
+    },
+    {
+      "stage": "stairs3",
+      "mode": "mean",
+      "seed": 6009,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8599510145206097,
+      "endpoint_distance_m": 0.1696341454924046,
+      "physics_steps": 7200
+    },
+    {
+      "stage": "stairs3",
+      "mode": "mean",
+      "seed": 6010,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8515357080725474,
+      "endpoint_distance_m": 0.15531185275186357,
+      "physics_steps": 8000
+    },
+    {
+      "stage": "stairs3",
+      "mode": "sample",
+      "seed": 6001,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.886387309814247,
+      "endpoint_distance_m": 0.14150501726805906,
+      "physics_steps": 8100
+    },
+    {
+      "stage": "stairs3",
+      "mode": "sample",
+      "seed": 6002,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.876425694710519,
+      "endpoint_distance_m": 0.14516930633360162,
+      "physics_steps": 7200
+    },
+    {
+      "stage": "stairs3",
+      "mode": "sample",
+      "seed": 6003,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8893402946313365,
+      "endpoint_distance_m": 0.15705524353622696,
+      "physics_steps": 7700
+    },
+    {
+      "stage": "stairs3",
+      "mode": "sample",
+      "seed": 6004,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.878150606794214,
+      "endpoint_distance_m": 0.14897581549700933,
+      "physics_steps": 7100
+    },
+    {
+      "stage": "stairs3",
+      "mode": "sample",
+      "seed": 6005,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.870640950085141,
+      "endpoint_distance_m": 0.14531365369259483,
+      "physics_steps": 7100
+    },
+    {
+      "stage": "stairs3",
+      "mode": "sample",
+      "seed": 6006,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.867345289930466,
+      "endpoint_distance_m": 0.1765696631339902,
+      "physics_steps": 16100
+    },
+    {
+      "stage": "stairs3",
+      "mode": "sample",
+      "seed": 6007,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.879626277668812,
+      "endpoint_distance_m": 0.1404283666399118,
+      "physics_steps": 7400
+    },
+    {
+      "stage": "stairs3",
+      "mode": "sample",
+      "seed": 6008,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8768027607066036,
+      "endpoint_distance_m": 0.15499195746254787,
+      "physics_steps": 7200
+    },
+    {
+      "stage": "stairs3",
+      "mode": "sample",
+      "seed": 6009,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8894343011400374,
+      "endpoint_distance_m": 0.1326585097844274,
+      "physics_steps": 7100
+    },
+    {
+      "stage": "stairs3",
+      "mode": "sample",
+      "seed": 6010,
+      "success": true,
+      "reason": "success",
+      "progress_m": 2.8815584474798444,
+      "endpoint_distance_m": 0.1458907599651201,
+      "physics_steps": 7900
+    },
+    {
+      "stage": "stairs6",
+      "mode": "mean",
+      "seed": 6001,
+      "success": true,
+      "reason": "success",
+      "progress_m": 5.875266048188999,
+      "endpoint_distance_m": 0.12936887945364645,
+      "physics_steps": 14800
+    },
+    {
+      "stage": "stairs6",
+      "mode": "mean",
+      "seed": 6002,
+      "success": true,
+      "reason": "success",
+      "progress_m": 5.863711881702422,
+      "endpoint_distance_m": 0.1348346736817223,
+      "physics_steps": 15100
+    },
+    {
+      "stage": "stairs6",
+      "mode": "mean",
+      "seed": 6003,
+      "success": true,
+      "reason": "success",
+      "progress_m": 5.873123307261271,
+      "endpoint_distance_m": 0.12704598664358924,
+      "physics_steps": 15300
+    },
+    {
+      "stage": "stairs6",
+      "mode": "mean",
+      "seed": 6004,
+      "success": true,
+      "reason": "success",
+      "progress_m": 5.867779307319192,
+      "endpoint_distance_m": 0.1336239805359431,
+      "physics_steps": 14300
+    },
+    {
+      "stage": "stairs6",
+      "mode": "mean",
+      "seed": 6005,
+      "success": true,
+      "reason": "success",
+      "progress_m": 5.8511226749916165,
+      "endpoint_distance_m": 0.14763713339916984,
+      "physics_steps": 15000
+    },
+    {
+      "stage": "stairs6",
+      "mode": "mean",
+      "seed": 6006,
+      "success": true,
+      "reason": "success",
+      "progress_m": 5.875801410206029,
+      "endpoint_distance_m": 0.12865817451245215,
+      "physics_steps": 14900
+    },
+    {
+      "stage": "stairs6",
+      "mode": "mean",
+      "seed": 6007,
+      "success": true,
+      "reason": "success",
+      "progress_m": 5.872382023728506,
+      "endpoint_distance_m": 0.1271279077611939,
+      "physics_steps": 14800
+    },
+    {
+      "stage": "stairs6",
+      "mode": "mean",
+      "seed": 6008,
+      "success": true,
+      "reason": "success",
+      "progress_m": 5.8606208586322985,
+      "endpoint_distance_m": 0.13830718574169984,
+      "physics_steps": 15400
+    },
+    {
+      "stage": "stairs6",
+      "mode": "mean",
+      "seed": 6009,
+      "success": true,
+      "reason": "success",
+      "progress_m": 5.8756829589621145,
+      "endpoint_distance_m": 0.12755429577112473,
+      "physics_steps": 14600
+    },
+    {
+      "stage": "stairs6",
+      "mode": "mean",
+      "seed": 6010,
+      "success": true,
+      "reason": "success",
+      "progress_m": 5.872624754198336,
+      "endpoint_distance_m": 0.13162584589886367,
+      "physics_steps": 15300
+    },
+    {
+      "stage": "stairs6",
+      "mode": "sample",
+      "seed": 6001,
+      "success": true,
+      "reason": "success",
+      "progress_m": 5.86451847759262,
+      "endpoint_distance_m": 0.13632216882509637,
+      "physics_steps": 15400
+    },
+    {
+      "stage": "stairs6",
+      "mode": "sample",
+      "seed": 6002,
+      "success": true,
+      "reason": "success",
+      "progress_m": 5.877117903529258,
+      "endpoint_distance_m": 0.1260106092175202,
+      "physics_steps": 14500
+    },
+    {
+      "stage": "stairs6",
+      "mode": "sample",
+      "seed": 6003,
+      "success": true,
+      "reason": "success",
+      "progress_m": 5.871031032990702,
+      "endpoint_distance_m": 0.13537312751180602,
+      "physics_steps": 15400
+    },
+    {
+      "stage": "stairs6",
+      "mode": "sample",
+      "seed": 6004,
+      "success": true,
+      "reason": "success",
+      "progress_m": 5.878247601531683,
+      "endpoint_distance_m": 0.12495327109144526,
+      "physics_steps": 14600
+    },
+    {
+      "stage": "stairs6",
+      "mode": "sample",
+      "seed": 6005,
+      "success": true,
+      "reason": "success",
+      "progress_m": 5.8596839032352515,
+      "endpoint_distance_m": 0.1447122972089886,
+      "physics_steps": 14600
+    },
+    {
+      "stage": "stairs6",
+      "mode": "sample",
+      "seed": 6006,
+      "success": true,
+      "reason": "success",
+      "progress_m": 5.854394302902487,
+      "endpoint_distance_m": 0.14744386550545063,
+      "physics_steps": 16900
+    },
+    {
+      "stage": "stairs6",
+      "mode": "sample",
+      "seed": 6007,
+      "success": true,
+      "reason": "success",
+      "progress_m": 5.883831314255789,
+      "endpoint_distance_m": 0.118160650904978,
+      "physics_steps": 14600
+    },
+    {
+      "stage": "stairs6",
+      "mode": "sample",
+      "seed": 6008,
+      "success": true,
+      "reason": "success",
+      "progress_m": 5.875469439031417,
+      "endpoint_distance_m": 0.12676074207836152,
+      "physics_steps": 14700
+    },
+    {
+      "stage": "stairs6",
+      "mode": "sample",
+      "seed": 6009,
+      "success": true,
+      "reason": "success",
+      "progress_m": 5.8522985100856095,
+      "endpoint_distance_m": 0.14722171204300316,
+      "physics_steps": 14400
+    },
+    {
+      "stage": "stairs6",
+      "mode": "sample",
+      "seed": 6010,
+      "success": true,
+      "reason": "success",
+      "progress_m": 5.8625740476282155,
+      "endpoint_distance_m": 0.13886520526201773,
+      "physics_steps": 15100
+    },
+    {
+      "stage": "stairs10",
+      "mode": "mean",
+      "seed": 6001,
+      "success": true,
+      "reason": "success",
+      "progress_m": 9.87068184150876,
+      "endpoint_distance_m": 0.04167020867208801,
+      "physics_steps": 28400
+    },
+    {
+      "stage": "stairs10",
+      "mode": "mean",
+      "seed": 6002,
+      "success": true,
+      "reason": "success",
+      "progress_m": 10.037514413579716,
+      "endpoint_distance_m": 0.030077005862850236,
+      "physics_steps": 23200
+    },
+    {
+      "stage": "stairs10",
+      "mode": "mean",
+      "seed": 6003,
+      "success": true,
+      "reason": "success",
+      "progress_m": 10.059117513584965,
+      "endpoint_distance_m": 0.06784016885982183,
+      "physics_steps": 31600
+    },
+    {
+      "stage": "stairs10",
+      "mode": "mean",
+      "seed": 6004,
+      "success": true,
+      "reason": "success",
+      "progress_m": 10.043246464748215,
+      "endpoint_distance_m": 0.0836766738297478,
+      "physics_steps": 26900
+    },
+    {
+      "stage": "stairs10",
+      "mode": "mean",
+      "seed": 6005,
+      "success": true,
+      "reason": "success",
+      "progress_m": 10.050970535818905,
+      "endpoint_distance_m": 0.10811815615619162,
+      "physics_steps": 27000
+    },
+    {
+      "stage": "stairs10",
+      "mode": "mean",
+      "seed": 6006,
+      "success": true,
+      "reason": "success",
+      "progress_m": 9.912531165122042,
+      "endpoint_distance_m": 0.026352232676379057,
+      "physics_steps": 24500
+    },
+    {
+      "stage": "stairs10",
+      "mode": "mean",
+      "seed": 6007,
+      "success": true,
+      "reason": "success",
+      "progress_m": 9.85938657876676,
+      "endpoint_distance_m": 0.08234770175098512,
+      "physics_steps": 27700
+    },
+    {
+      "stage": "stairs10",
+      "mode": "mean",
+      "seed": 6008,
+      "success": true,
+      "reason": "success",
+      "progress_m": 9.948896916414013,
+      "endpoint_distance_m": 0.025933807767081204,
+      "physics_steps": 23800
+    },
+    {
+      "stage": "stairs10",
+      "mode": "mean",
+      "seed": 6009,
+      "success": true,
+      "reason": "success",
+      "progress_m": 9.866529648,
+      "endpoint_distance_m": 0.037719317093565186,
+      "physics_steps": 24600
+    },
+    {
+      "stage": "stairs10",
+      "mode": "mean",
+      "seed": 6010,
+      "success": true,
+      "reason": "success",
+      "progress_m": 9.941326119520614,
+      "endpoint_distance_m": 0.027792970127298183,
+      "physics_steps": 24200
+    },
+    {
+      "stage": "stairs10",
+      "mode": "sample",
+      "seed": 6001,
+      "success": true,
+      "reason": "success",
+      "progress_m": 10.039039057863059,
+      "endpoint_distance_m": 0.04125851080769881,
+      "physics_steps": 27100
+    },
+    {
+      "stage": "stairs10",
+      "mode": "sample",
+      "seed": 6002,
+      "success": true,
+      "reason": "success",
+      "progress_m": 9.925933507658483,
+      "endpoint_distance_m": 0.02645774404953251,
+      "physics_steps": 22900
+    },
+    {
+      "stage": "stairs10",
+      "mode": "sample",
+      "seed": 6003,
+      "success": true,
+      "reason": "success",
+      "progress_m": 9.932874898749839,
+      "endpoint_distance_m": 0.04739609103313689,
+      "physics_steps": 28600
+    },
+    {
+      "stage": "stairs10",
+      "mode": "sample",
+      "seed": 6004,
+      "success": true,
+      "reason": "success",
+      "progress_m": 10.030627709777638,
+      "endpoint_distance_m": 0.07868671381236948,
+      "physics_steps": 26500
+    },
+    {
+      "stage": "stairs10",
+      "mode": "sample",
+      "seed": 6005,
+      "success": true,
+      "reason": "success",
+      "progress_m": 9.882901883740443,
+      "endpoint_distance_m": 0.04142608744394401,
+      "physics_steps": 23600
+    },
+    {
+      "stage": "stairs10",
+      "mode": "sample",
+      "seed": 6006,
+      "success": false,
+      "reason": "stalled",
+      "progress_m": 0.02602334120647679,
+      "endpoint_distance_m": 7.353944087580888,
+      "physics_steps": 11600
+    },
+    {
+      "stage": "stairs10",
+      "mode": "sample",
+      "seed": 6007,
+      "success": true,
+      "reason": "success",
+      "progress_m": 9.915610447047692,
+      "endpoint_distance_m": 0.05036018070369925,
+      "physics_steps": 26200
+    },
+    {
+      "stage": "stairs10",
+      "mode": "sample",
+      "seed": 6008,
+      "success": true,
+      "reason": "success",
+      "progress_m": 9.859663456965896,
+      "endpoint_distance_m": 0.04640188751474087,
+      "physics_steps": 24100
+    },
+    {
+      "stage": "stairs10",
+      "mode": "sample",
+      "seed": 6009,
+      "success": true,
+      "reason": "success",
+      "progress_m": 10.024974955753375,
+      "endpoint_distance_m": 0.08559905094288413,
+      "physics_steps": 26300
+    },
+    {
+      "stage": "stairs10",
+      "mode": "sample",
+      "seed": 6010,
+      "success": true,
+      "reason": "success",
+      "progress_m": 9.879312127402834,
+      "endpoint_distance_m": 0.037287021370213586,
+      "physics_steps": 28200
+    },
+    {
+      "stage": "stairs15",
+      "mode": "mean",
+      "seed": 6001,
+      "success": true,
+      "reason": "success",
+      "progress_m": 14.876198034725094,
+      "endpoint_distance_m": 0.09121876954067286,
+      "physics_steps": 42700
+    },
+    {
+      "stage": "stairs15",
+      "mode": "mean",
+      "seed": 6002,
+      "success": true,
+      "reason": "success",
+      "progress_m": 14.861426859003767,
+      "endpoint_distance_m": 0.12699886910172342,
+      "physics_steps": 40200
+    },
+    {
+      "stage": "stairs15",
+      "mode": "mean",
+      "seed": 6003,
+      "success": true,
+      "reason": "success",
+      "progress_m": 14.921004488129919,
+      "endpoint_distance_m": 0.05366922234642083,
+      "physics_steps": 39500
+    },
+    {
+      "stage": "stairs15",
+      "mode": "mean",
+      "seed": 6004,
+      "success": true,
+      "reason": "success",
+      "progress_m": 14.852691708736389,
+      "endpoint_distance_m": 0.14987838734316175,
+      "physics_steps": 38900
+    },
+    {
+      "stage": "stairs15",
+      "mode": "mean",
+      "seed": 6005,
+      "success": true,
+      "reason": "success",
+      "progress_m": 14.852281817421577,
+      "endpoint_distance_m": 0.1009585174578761,
+      "physics_steps": 37400
+    },
+    {
+      "stage": "stairs15",
+      "mode": "mean",
+      "seed": 6006,
+      "success": true,
+      "reason": "success",
+      "progress_m": 14.87739316231141,
+      "endpoint_distance_m": 0.08435714600227764,
+      "physics_steps": 41000
+    },
+    {
+      "stage": "stairs15",
+      "mode": "mean",
+      "seed": 6007,
+      "success": true,
+      "reason": "success",
+      "progress_m": 14.901899048999445,
+      "endpoint_distance_m": 0.0708502466959491,
+      "physics_steps": 38600
+    },
+    {
+      "stage": "stairs15",
+      "mode": "mean",
+      "seed": 6008,
+      "success": true,
+      "reason": "success",
+      "progress_m": 14.8672099268636,
+      "endpoint_distance_m": 0.08834858511867139,
+      "physics_steps": 36800
+    },
+    {
+      "stage": "stairs15",
+      "mode": "mean",
+      "seed": 6009,
+      "success": true,
+      "reason": "success",
+      "progress_m": 14.86132754002614,
+      "endpoint_distance_m": 0.10327125126450247,
+      "physics_steps": 37700
+    },
+    {
+      "stage": "stairs15",
+      "mode": "mean",
+      "seed": 6010,
+      "success": true,
+      "reason": "success",
+      "progress_m": 14.854509170515247,
+      "endpoint_distance_m": 0.10889596313770834,
+      "physics_steps": 36900
+    },
+    {
+      "stage": "stairs15",
+      "mode": "sample",
+      "seed": 6001,
+      "success": true,
+      "reason": "success",
+      "progress_m": 14.88721740880512,
+      "endpoint_distance_m": 0.07232349967999643,
+      "physics_steps": 39100
+    },
+    {
+      "stage": "stairs15",
+      "mode": "sample",
+      "seed": 6002,
+      "success": true,
+      "reason": "success",
+      "progress_m": 14.852670241851065,
+      "endpoint_distance_m": 0.12375600654066317,
+      "physics_steps": 35000
+    },
+    {
+      "stage": "stairs15",
+      "mode": "sample",
+      "seed": 6003,
+      "success": true,
+      "reason": "success",
+      "progress_m": 14.89602196817815,
+      "endpoint_distance_m": 0.0797152829662028,
+      "physics_steps": 39800
+    },
+    {
+      "stage": "stairs15",
+      "mode": "sample",
+      "seed": 6004,
+      "success": false,
+      "reason": "collision",
+      "progress_m": 4.181061229,
+      "endpoint_distance_m": 8.05034948105772,
+      "physics_steps": 12936
+    },
+    {
+      "stage": "stairs15",
+      "mode": "sample",
+      "seed": 6005,
+      "success": true,
+      "reason": "success",
+      "progress_m": 14.877446236450677,
+      "endpoint_distance_m": 0.09942497224843552,
+      "physics_steps": 37200
+    },
+    {
+      "stage": "stairs15",
+      "mode": "sample",
+      "seed": 6006,
+      "success": true,
+      "reason": "success",
+      "progress_m": 14.858101003717028,
+      "endpoint_distance_m": 0.09613379561002039,
+      "physics_steps": 38800
+    },
+    {
+      "stage": "stairs15",
+      "mode": "sample",
+      "seed": 6007,
+      "success": true,
+      "reason": "success",
+      "progress_m": 14.87017493362527,
+      "endpoint_distance_m": 0.0960991569731913,
+      "physics_steps": 40000
+    },
+    {
+      "stage": "stairs15",
+      "mode": "sample",
+      "seed": 6008,
+      "success": true,
+      "reason": "success",
+      "progress_m": 14.87214134871693,
+      "endpoint_distance_m": 0.09246429319426804,
+      "physics_steps": 35700
+    },
+    {
+      "stage": "stairs15",
+      "mode": "sample",
+      "seed": 6009,
+      "success": true,
+      "reason": "success",
+      "progress_m": 14.87702243888914,
+      "endpoint_distance_m": 0.1109415602197336,
+      "physics_steps": 38300
+    },
+    {
+      "stage": "stairs15",
+      "mode": "sample",
+      "seed": 6010,
+      "success": true,
+      "reason": "success",
+      "progress_m": 14.877634629406232,
+      "endpoint_distance_m": 0.0751966573835359,
+      "physics_steps": 35700
+    },
+    {
+      "stage": "stairs20",
+      "mode": "mean",
+      "seed": 6001,
+      "success": true,
+      "reason": "success",
+      "progress_m": 19.889968453465883,
+      "endpoint_distance_m": 0.13038347231523395,
+      "physics_steps": 54100
+    },
+    {
+      "stage": "stairs20",
+      "mode": "mean",
+      "seed": 6002,
+      "success": true,
+      "reason": "success",
+      "progress_m": 19.877404339236143,
+      "endpoint_distance_m": 0.1354248912042028,
+      "physics_steps": 53200
+    },
+    {
+      "stage": "stairs20",
+      "mode": "mean",
+      "seed": 6003,
+      "success": true,
+      "reason": "success",
+      "progress_m": 19.865729718203003,
+      "endpoint_distance_m": 0.14635674662002152,
+      "physics_steps": 53600
+    },
+    {
+      "stage": "stairs20",
+      "mode": "mean",
+      "seed": 6004,
+      "success": true,
+      "reason": "success",
+      "progress_m": 19.891478487257853,
+      "endpoint_distance_m": 0.1205463810565325,
+      "physics_steps": 54900
+    },
+    {
+      "stage": "stairs20",
+      "mode": "mean",
+      "seed": 6005,
+      "success": true,
+      "reason": "success",
+      "progress_m": 19.85256784981889,
+      "endpoint_distance_m": 0.14944287257912137,
+      "physics_steps": 53800
+    },
+    {
+      "stage": "stairs20",
+      "mode": "mean",
+      "seed": 6006,
+      "success": true,
+      "reason": "success",
+      "progress_m": 19.883936967841414,
+      "endpoint_distance_m": 0.13148853078008468,
+      "physics_steps": 55700
+    },
+    {
+      "stage": "stairs20",
+      "mode": "mean",
+      "seed": 6007,
+      "success": true,
+      "reason": "success",
+      "progress_m": 19.856792563678273,
+      "endpoint_distance_m": 0.1400787117678364,
+      "physics_steps": 54200
+    },
+    {
+      "stage": "stairs20",
+      "mode": "mean",
+      "seed": 6008,
+      "success": true,
+      "reason": "success",
+      "progress_m": 19.87910481545838,
+      "endpoint_distance_m": 0.13173883442988,
+      "physics_steps": 53300
+    },
+    {
+      "stage": "stairs20",
+      "mode": "mean",
+      "seed": 6009,
+      "success": true,
+      "reason": "success",
+      "progress_m": 19.852178391083708,
+      "endpoint_distance_m": 0.1344739022728463,
+      "physics_steps": 57600
+    },
+    {
+      "stage": "stairs20",
+      "mode": "mean",
+      "seed": 6010,
+      "success": true,
+      "reason": "success",
+      "progress_m": 19.85093861700646,
+      "endpoint_distance_m": 0.14777966483044228,
+      "physics_steps": 55400
+    },
+    {
+      "stage": "stairs20",
+      "mode": "sample",
+      "seed": 6001,
+      "success": false,
+      "reason": "collision",
+      "progress_m": 19.49732955985415,
+      "endpoint_distance_m": 0.38379961166153365,
+      "physics_steps": 62757
+    },
+    {
+      "stage": "stairs20",
+      "mode": "sample",
+      "seed": 6002,
+      "success": true,
+      "reason": "success",
+      "progress_m": 19.895672579478617,
+      "endpoint_distance_m": 0.12306771000878816,
+      "physics_steps": 55000
+    },
+    {
+      "stage": "stairs20",
+      "mode": "sample",
+      "seed": 6003,
+      "success": true,
+      "reason": "success",
+      "progress_m": 19.897466913470687,
+      "endpoint_distance_m": 0.119344365227903,
+      "physics_steps": 54000
+    },
+    {
+      "stage": "stairs20",
+      "mode": "sample",
+      "seed": 6004,
+      "success": true,
+      "reason": "success",
+      "progress_m": 19.884565964808615,
+      "endpoint_distance_m": 0.11822723657789144,
+      "physics_steps": 50300
+    },
+    {
+      "stage": "stairs20",
+      "mode": "sample",
+      "seed": 6005,
+      "success": true,
+      "reason": "success",
+      "progress_m": 19.865501072192984,
+      "endpoint_distance_m": 0.1348885610866791,
+      "physics_steps": 52800
+    },
+    {
+      "stage": "stairs20",
+      "mode": "sample",
+      "seed": 6006,
+      "success": true,
+      "reason": "success",
+      "progress_m": 19.888060626249768,
+      "endpoint_distance_m": 0.1244942970154712,
+      "physics_steps": 64700
+    },
+    {
+      "stage": "stairs20",
+      "mode": "sample",
+      "seed": 6007,
+      "success": true,
+      "reason": "success",
+      "progress_m": 19.883214570258467,
+      "endpoint_distance_m": 0.12562759682049088,
+      "physics_steps": 55800
+    },
+    {
+      "stage": "stairs20",
+      "mode": "sample",
+      "seed": 6008,
+      "success": true,
+      "reason": "success",
+      "progress_m": 19.879669160576576,
+      "endpoint_distance_m": 0.13032288552044108,
+      "physics_steps": 50300
+    },
+    {
+      "stage": "stairs20",
+      "mode": "sample",
+      "seed": 6009,
+      "success": true,
+      "reason": "success",
+      "progress_m": 19.89684479389485,
+      "endpoint_distance_m": 0.12057446933749952,
+      "physics_steps": 52400
+    },
+    {
+      "stage": "stairs20",
+      "mode": "sample",
+      "seed": 6010,
+      "success": true,
+      "reason": "success",
+      "progress_m": 19.904938240522124,
+      "endpoint_distance_m": 0.09708037956242034,
+      "physics_steps": 65900
+    },
+    {
+      "stage": "course50",
+      "mode": "mean",
+      "seed": 6001,
+      "success": true,
+      "reason": "success",
+      "progress_m": 49.879454210568404,
+      "endpoint_distance_m": 0.12024445258356803,
+      "physics_steps": 109300
+    },
+    {
+      "stage": "course50",
+      "mode": "mean",
+      "seed": 6002,
+      "success": true,
+      "reason": "success",
+      "progress_m": 49.874739844860486,
+      "endpoint_distance_m": 0.12493517121103954,
+      "physics_steps": 106400
+    },
+    {
+      "stage": "course50",
+      "mode": "mean",
+      "seed": 6003,
+      "success": true,
+      "reason": "success",
+      "progress_m": 49.86626901144873,
+      "endpoint_distance_m": 0.13338765091682883,
+      "physics_steps": 110900
+    },
+    {
+      "stage": "course50",
+      "mode": "mean",
+      "seed": 6004,
+      "success": true,
+      "reason": "success",
+      "progress_m": 49.87179695941916,
+      "endpoint_distance_m": 0.12788454171891878,
+      "physics_steps": 114800
+    },
+    {
+      "stage": "course50",
+      "mode": "mean",
+      "seed": 6005,
+      "success": true,
+      "reason": "success",
+      "progress_m": 49.878242017274076,
+      "endpoint_distance_m": 0.12150315030443629,
+      "physics_steps": 105400
+    },
+    {
+      "stage": "course50",
+      "mode": "mean",
+      "seed": 6006,
+      "success": true,
+      "reason": "success",
+      "progress_m": 49.87273288585001,
+      "endpoint_distance_m": 0.1269304375787961,
+      "physics_steps": 111200
+    },
+    {
+      "stage": "course50",
+      "mode": "mean",
+      "seed": 6007,
+      "success": true,
+      "reason": "success",
+      "progress_m": 49.86006218031909,
+      "endpoint_distance_m": 0.13960597712349776,
+      "physics_steps": 112000
+    },
+    {
+      "stage": "course50",
+      "mode": "mean",
+      "seed": 6008,
+      "success": true,
+      "reason": "success",
+      "progress_m": 49.87933297661252,
+      "endpoint_distance_m": 0.12034181612731719,
+      "physics_steps": 109500
+    },
+    {
+      "stage": "course50",
+      "mode": "mean",
+      "seed": 6009,
+      "success": true,
+      "reason": "success",
+      "progress_m": 49.86227564356518,
+      "endpoint_distance_m": 0.1373805843546432,
+      "physics_steps": 114000
+    },
+    {
+      "stage": "course50",
+      "mode": "mean",
+      "seed": 6010,
+      "success": true,
+      "reason": "success",
+      "progress_m": 49.86035456354585,
+      "endpoint_distance_m": 0.13935274306942272,
+      "physics_steps": 110900
+    },
+    {
+      "stage": "course50",
+      "mode": "sample",
+      "seed": 6001,
+      "success": true,
+      "reason": "success",
+      "progress_m": 49.871371287345966,
+      "endpoint_distance_m": 0.12836228590745116,
+      "physics_steps": 109700
+    },
+    {
+      "stage": "course50",
+      "mode": "sample",
+      "seed": 6002,
+      "success": true,
+      "reason": "success",
+      "progress_m": 49.86370812838407,
+      "endpoint_distance_m": 0.13594712154018312,
+      "physics_steps": 109600
+    },
+    {
+      "stage": "course50",
+      "mode": "sample",
+      "seed": 6003,
+      "success": true,
+      "reason": "success",
+      "progress_m": 49.88574038196879,
+      "endpoint_distance_m": 0.11394727952013875,
+      "physics_steps": 110700
+    },
+    {
+      "stage": "course50",
+      "mode": "sample",
+      "seed": 6004,
+      "success": true,
+      "reason": "success",
+      "progress_m": 49.85710199736296,
+      "endpoint_distance_m": 0.14253544063710213,
+      "physics_steps": 104800
+    },
+    {
+      "stage": "course50",
+      "mode": "sample",
+      "seed": 6005,
+      "success": true,
+      "reason": "success",
+      "progress_m": 49.8753104924474,
+      "endpoint_distance_m": 0.12445415581248664,
+      "physics_steps": 115100
+    },
+    {
+      "stage": "course50",
+      "mode": "sample",
+      "seed": 6006,
+      "success": false,
+      "reason": "stalled",
+      "progress_m": 0.10292809048603427,
+      "endpoint_distance_m": 39.654418432169486,
+      "physics_steps": 11600
+    },
+    {
+      "stage": "course50",
+      "mode": "sample",
+      "seed": 6007,
+      "success": true,
+      "reason": "success",
+      "progress_m": 49.85262863467509,
+      "endpoint_distance_m": 0.14708411025462712,
+      "physics_steps": 106100
+    },
+    {
+      "stage": "course50",
+      "mode": "sample",
+      "seed": 6008,
+      "success": true,
+      "reason": "success",
+      "progress_m": 49.868911906701506,
+      "endpoint_distance_m": 0.13075792371663184,
+      "physics_steps": 106000
+    },
+    {
+      "stage": "course50",
+      "mode": "sample",
+      "seed": 6009,
+      "success": true,
+      "reason": "success",
+      "progress_m": 49.85914069218153,
+      "endpoint_distance_m": 0.14051328907155863,
+      "physics_steps": 108700
+    },
+    {
+      "stage": "course50",
+      "mode": "sample",
+      "seed": 6010,
+      "success": true,
+      "reason": "success",
+      "progress_m": 49.859838283584345,
+      "endpoint_distance_m": 0.13991966302075595,
+      "physics_steps": 110100
+    },
+    {
+      "stage": "course100",
+      "mode": "mean",
+      "seed": 6001,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.87663991582967,
+      "endpoint_distance_m": 0.1454690531702039,
+      "physics_steps": 202500
+    },
+    {
+      "stage": "course100",
+      "mode": "mean",
+      "seed": 6002,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.86301714564371,
+      "endpoint_distance_m": 0.16233772181817027,
+      "physics_steps": 200600
+    },
+    {
+      "stage": "course100",
+      "mode": "mean",
+      "seed": 6003,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.87178777973755,
+      "endpoint_distance_m": 0.1354436526505711,
+      "physics_steps": 202900
+    },
+    {
+      "stage": "course100",
+      "mode": "mean",
+      "seed": 6004,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.8671076871013,
+      "endpoint_distance_m": 0.14665289665375014,
+      "physics_steps": 198300
+    },
+    {
+      "stage": "course100",
+      "mode": "mean",
+      "seed": 6005,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.85930848447744,
+      "endpoint_distance_m": 0.15261522870969096,
+      "physics_steps": 203100
+    },
+    {
+      "stage": "course100",
+      "mode": "mean",
+      "seed": 6006,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.85911328805807,
+      "endpoint_distance_m": 0.1636586759335325,
+      "physics_steps": 199400
+    },
+    {
+      "stage": "course100",
+      "mode": "mean",
+      "seed": 6007,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.86505489058321,
+      "endpoint_distance_m": 0.14348844097709182,
+      "physics_steps": 198700
+    },
+    {
+      "stage": "course100",
+      "mode": "mean",
+      "seed": 6008,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.86258748931854,
+      "endpoint_distance_m": 0.15799580788563747,
+      "physics_steps": 204500
+    },
+    {
+      "stage": "course100",
+      "mode": "mean",
+      "seed": 6009,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.86463100297847,
+      "endpoint_distance_m": 0.1448310176558798,
+      "physics_steps": 199500
+    },
+    {
+      "stage": "course100",
+      "mode": "mean",
+      "seed": 6010,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.86423762866667,
+      "endpoint_distance_m": 0.15343368391609652,
+      "physics_steps": 203100
+    },
+    {
+      "stage": "course100",
+      "mode": "sample",
+      "seed": 6001,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.85067670131507,
+      "endpoint_distance_m": 0.1640867388213101,
+      "physics_steps": 193400
+    },
+    {
+      "stage": "course100",
+      "mode": "sample",
+      "seed": 6002,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.88611242887335,
+      "endpoint_distance_m": 0.12584525181340428,
+      "physics_steps": 199400
+    },
+    {
+      "stage": "course100",
+      "mode": "sample",
+      "seed": 6003,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.880586448287,
+      "endpoint_distance_m": 0.12532217414984168,
+      "physics_steps": 209000
+    },
+    {
+      "stage": "course100",
+      "mode": "sample",
+      "seed": 6004,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.86683630254214,
+      "endpoint_distance_m": 0.1455343843559227,
+      "physics_steps": 204500
+    },
+    {
+      "stage": "course100",
+      "mode": "sample",
+      "seed": 6005,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.87333736488233,
+      "endpoint_distance_m": 0.13261877083889703,
+      "physics_steps": 199100
+    },
+    {
+      "stage": "course100",
+      "mode": "sample",
+      "seed": 6006,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.8565449757925,
+      "endpoint_distance_m": 0.18242400747771312,
+      "physics_steps": 213400
+    },
+    {
+      "stage": "course100",
+      "mode": "sample",
+      "seed": 6007,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.88024902735863,
+      "endpoint_distance_m": 0.13186467455521092,
+      "physics_steps": 202000
+    },
+    {
+      "stage": "course100",
+      "mode": "sample",
+      "seed": 6008,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.86028120751077,
+      "endpoint_distance_m": 0.17509503503741583,
+      "physics_steps": 211500
+    },
+    {
+      "stage": "course100",
+      "mode": "sample",
+      "seed": 6009,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.8594052375906,
+      "endpoint_distance_m": 0.14592547336377418,
+      "physics_steps": 198400
+    },
+    {
+      "stage": "course100",
+      "mode": "sample",
+      "seed": 6010,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.86202468265127,
+      "endpoint_distance_m": 0.14587312186521942,
+      "physics_steps": 200900
+    },
+    {
+      "stage": "noisy100",
+      "mode": "mean",
+      "seed": 6001,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.8677183308566,
+      "endpoint_distance_m": 0.14550906806578173,
+      "physics_steps": 199600
+    },
+    {
+      "stage": "noisy100",
+      "mode": "mean",
+      "seed": 6002,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.86441878561972,
+      "endpoint_distance_m": 0.14037030527373656,
+      "physics_steps": 195300
+    },
+    {
+      "stage": "noisy100",
+      "mode": "mean",
+      "seed": 6003,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.90110410755663,
+      "endpoint_distance_m": 0.09913934493673623,
+      "physics_steps": 199700
+    },
+    {
+      "stage": "noisy100",
+      "mode": "mean",
+      "seed": 6004,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.87653685802293,
+      "endpoint_distance_m": 0.12884867938190747,
+      "physics_steps": 202100
+    },
+    {
+      "stage": "noisy100",
+      "mode": "mean",
+      "seed": 6005,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.86874570833399,
+      "endpoint_distance_m": 0.15320787848103853,
+      "physics_steps": 199500
+    },
+    {
+      "stage": "noisy100",
+      "mode": "mean",
+      "seed": 6006,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.86319374272075,
+      "endpoint_distance_m": 0.16403967773895062,
+      "physics_steps": 207300
+    },
+    {
+      "stage": "noisy100",
+      "mode": "mean",
+      "seed": 6007,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.85664298280821,
+      "endpoint_distance_m": 0.15377730105570542,
+      "physics_steps": 197600
+    },
+    {
+      "stage": "noisy100",
+      "mode": "mean",
+      "seed": 6008,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.86347265942861,
+      "endpoint_distance_m": 0.13914733133040497,
+      "physics_steps": 202700
+    },
+    {
+      "stage": "noisy100",
+      "mode": "mean",
+      "seed": 6009,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.88116939238657,
+      "endpoint_distance_m": 0.11902934409249973,
+      "physics_steps": 205500
+    },
+    {
+      "stage": "noisy100",
+      "mode": "mean",
+      "seed": 6010,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.86802149406007,
+      "endpoint_distance_m": 0.14239843876143105,
+      "physics_steps": 196700
+    },
+    {
+      "stage": "noisy100",
+      "mode": "sample",
+      "seed": 6001,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.87128844016159,
+      "endpoint_distance_m": 0.15579238256622382,
+      "physics_steps": 202900
+    },
+    {
+      "stage": "noisy100",
+      "mode": "sample",
+      "seed": 6002,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.85562917045296,
+      "endpoint_distance_m": 0.1566237178351194,
+      "physics_steps": 202900
+    },
+    {
+      "stage": "noisy100",
+      "mode": "sample",
+      "seed": 6003,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.86535173910815,
+      "endpoint_distance_m": 0.18827640295527387,
+      "physics_steps": 203200
+    },
+    {
+      "stage": "noisy100",
+      "mode": "sample",
+      "seed": 6004,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.85414748771308,
+      "endpoint_distance_m": 0.1489743977459852,
+      "physics_steps": 202100
+    },
+    {
+      "stage": "noisy100",
+      "mode": "sample",
+      "seed": 6005,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.8559884598191,
+      "endpoint_distance_m": 0.1732624749868236,
+      "physics_steps": 198100
+    },
+    {
+      "stage": "noisy100",
+      "mode": "sample",
+      "seed": 6006,
+      "success": false,
+      "reason": "stalled",
+      "progress_m": 17.997267651364254,
+      "endpoint_distance_m": 65.16156519244625,
+      "physics_steps": 64000
+    },
+    {
+      "stage": "noisy100",
+      "mode": "sample",
+      "seed": 6007,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.85983326486443,
+      "endpoint_distance_m": 0.1518308560668582,
+      "physics_steps": 197400
+    },
+    {
+      "stage": "noisy100",
+      "mode": "sample",
+      "seed": 6008,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.85368325905657,
+      "endpoint_distance_m": 0.17736773340662548,
+      "physics_steps": 201800
+    },
+    {
+      "stage": "noisy100",
+      "mode": "sample",
+      "seed": 6009,
+      "success": true,
+      "reason": "success",
+      "progress_m": 99.88288800390164,
+      "endpoint_distance_m": 0.11735641102756361,
+      "physics_steps": 198100
+    },
+    {
+      "stage": "noisy100",
+      "mode": "sample",
+      "seed": 6010,
+      "success": false,
+      "reason": "collision",
+      "progress_m": 53.491347500660545,
+      "endpoint_distance_m": 43.33318354520716,
+      "physics_steps": 119863
+    }
+  ],
+  "simulation_only": true
+}

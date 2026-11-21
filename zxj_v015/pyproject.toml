@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "atec-dreamerv3-nav"
+version = "0.1.0"
+description = "Phase-one M1 depth navigation and DreamerV3 integration scaffold"
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.26,<2", "gymnasium>=1.0,<2"]
+
+[project.optional-dependencies]
+video = ["opencv-python-headless>=4.10,<5"]
+test = ["pytest>=8,<9"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+

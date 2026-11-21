@@ -1,0 +1,19 @@
+{
+  "checkpoint": {
+    "weights/v015/final/agent.pkl": "d5eb816dafc4301f4be1ef29492442ee4a2a2c117d99f2e2cb0becd41aee3285"
+  },
+  "external_files": {
+    "assets/terrains/competition_100m/v009/manifest.json": "5ec08c9b55aea5966b9bb7c1b54c684b7e12ccb3d8cbb1624d20c62627da449c",
+    "assets/terrains/competition_100m/v009/centerline.csv": "df674e817b42264004e7dd89996b327ab296c56dd74726a227ff464797cbeeef",
+    "assets/terrains/competition_100m/v009/terrain.npz": "32c82831b580838e3987ffa15906c3527f6b2f7b2e86d7bffb2ad34c623bb061",
+    "assets/terrains/competition_100m/v009/obstacles.npz": "0add259e1f839255702ae8ead26b9b7aea152e827863df216394361a91f7a3d6",
+    "assets/terrains/competition_100m/v009/visual.obj": "3b4c180e4e8d440c9ea78cc65e76b31630e678901c786e8c5d5243bee6aedda2",
+    "assets/terrains/competition_100m/v009/splats.npz": "27c5a2b7bb166e7d9615509f77ba39e2a052d73fd0d7214cb1d185091c5433c4",
+    "assets/robots/m1/mujoco/v001/manifest.json": "fe72277fa2bcac5ec0fe317d00cc8a5f80737f836e7516c730c157b995b726ef",
+    "assets/robots/m1/mujoco/v001/robot.xml": "cc64dd778b7bdd2f971a75ad548fad773645e9257df59482c9d16e3ac311e8a6"
+  },
+  "dataset_source": "https://huggingface.co/datasets/atec999/atec-opendataset",
+  "dreamerv3_commit": "e01491fad6434b2245a3b8ca201dd7faedcc458c",
+  "matrix_runtime_url": "https://github.com/GENISOM-AI/MATRiX_Robot_MC/releases/tag/v0.6.6",
+  "matrix_runtime_archive_sha256": "f65f94a86b43be047fcd91489dd0d7ce8baef46b61d0ac7d4d13b3744454d3da"
+}

@@ -1,0 +1,7 @@
+# Keep the original audit CSV bytes for SHA-256 verification.
+evidence/accepted_video.frames.csv -text whitespace=cr-at-eol
+# Keep copied source and the resolved YAML in their recorded formatting.
+pyproject.toml whitespace=-blank-at-eof
+scripts/_bootstrap.py whitespace=-blank-at-eof
+src/** whitespace=-blank-at-eof
+weights/v015/config.yaml whitespace=-blank-at-eol

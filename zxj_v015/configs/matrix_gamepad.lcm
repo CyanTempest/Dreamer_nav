@@ -1,0 +1,22 @@
+// Robot MC v0.6.6 gamepad_lcmt schema, field order verified from release ABI.
+struct gamepad_lcmt {
+    int32_t leftBumper;
+    int32_t rightBumper;
+    int32_t leftTriggerButton;
+    int32_t rightTriggerButton;
+    int32_t back;
+    int32_t start;
+    int32_t a;
+    int32_t b;
+    int32_t x;
+    int32_t y;
+    int32_t leftStickButton;
+    int32_t rightStickButton;
+    int32_t navigation_mode;
+    int32_t patrol_mode;
+    float leftTriggerAnalog;
+    float rightTriggerAnalog;
+    float leftStickAnalog[2];
+    float rightStickAnalog[2];
+    int32_t robot_state_flag;
+}
